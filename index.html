@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulateur de Retraite Avancé</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .step { display: none; }
+        .step.active { display: block; }
+        .result-card {
+            transition: all 0.5s ease-in-out;
+            opacity: 0;
+            transform: translateY(20px);
+            max-height: 0;
+            overflow: hidden;
+        }
+        .result-card.show {
+            opacity: 1;
+            transform: translateY(0);
+            max-height: 5000px;
+        }
+        #career-table input, #career-table select, #future-career-table input, #future-career-table select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            border: 1px solid #d1d5db;
+        }
+        input[type=range] {
+            -webkit-appearance: none; appearance: none;
+            background: transparent; cursor: pointer; width: 100%;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            height: 0.5rem;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            margin-top: -6px;
+            background-color: #4f46e5; height: 1.5rem; width: 1.5rem;
+            border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 2px #cbd5e1;
+        }
+        .chart-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        .slider-container {
+            position: relative;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            background: #e5e7eb; /* The gray track */
+            border-radius: 0.5rem;
+        }
+        .slider-highlight {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background-color: #4ade80; /* green-400 */
+            border-radius: 0.5rem;
+            z-index: 1;
+            pointer-events: none;
+            transition: width 0.1s linear;
+        }
+        input[type=range] {
+            position: relative;
+            z-index: 2;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #reportModal, #reportPrintableContent, #reportPrintableContent * {
+                visibility: visible;
+            }
+            #reportModal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            #closeReportBtn, #printReportBtn {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-6xl bg-white rounded-2xl shadow-lg p-6 md:p-8">
+       
+        <!-- Étape 1: Saisie de la carrière -->
+        <div id="step1" class="step active">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Étape 1 : Votre Carrière Passée</h1>
+                <p class="text-gray-500 mt-2">Saisissez les informations de votre Relevé de Situation Individuelle (RSI).</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                    <label for="initialBirthYear" class="block text-sm font-medium text-gray-600">Année de naissance</label>
+                    <input type="number" id="initialBirthYear" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="1980">
+                </div>
+                <div>
+                    <label for="initialChildrenCount" class="block text-sm font-medium text-gray-600">Nombre d'enfants</label>
+                    <input type="number" id="initialChildrenCount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="2">
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200" id="career-table">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Année</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type d'Activité</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenu / Traitement (€)</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trimestres Validés</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observations</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    </tbody>
+                </table>
+            </div>
+            <div class="mt-4 flex justify-between items-center">
+                <button id="addRowBtn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">
+                    + Ajouter une année
+                </button>
+                <button id="proceedToStep2Btn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700">
+                    Analyser la carrière et simuler &rarr;
+                </button>
+            </div>
+        </div>
+
+        <!-- Étape 2: Simulation et Résultats -->
+        <div id="step2" class="step">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Étape 2 : Analyse et Simulation</h1>
+                <p class="text-gray-500 mt-2">Projetez votre avenir et visualisez les optimisations possibles.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Colonne de gauche: Paramètres et Analyse -->
+                <div>
+                     <div class="bg-gray-50 p-6 rounded-lg space-y-6">
+                        <h2 class="text-xl font-semibold text-gray-700">Projection Future</h2>
+                        <div>
+                            <label for="retirementYearSlider" class="block text-sm font-medium text-gray-600 mb-2">Année de départ à la retraite</label>
+                            <div class="slider-container">
+                                <div class="slider-highlight"></div>
+                                <input type="range" id="retirementYearSlider">
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-500 mt-2">
+                                <span id="sliderMinLabel"></span>
+                                <span class="font-bold text-indigo-600 text-lg" id="sliderValueLabel"></span>
+                                <span id="sliderMaxLabel"></span>
+                            </div>
+                             <p class="text-center text-sm text-gray-600 mt-1">Âge de départ : <span id="retirementAgeLabel" class="font-bold"></span> <span id="extraYearsLabel" class="text-green-600 font-semibold"></span></p>
+                        </div>
+                       
+                        <div id="future-assumptions-container" class="hidden space-y-4 pt-4 border-t border-gray-200">
+                             <div id="simple-future-plan">
+                                <h3 class="text-md font-semibold text-gray-600">Hypothèse Simple</h3>
+                                <div>
+                                    <label for="futureIncome" class="block text-sm font-medium text-gray-600">Revenu / Traitement annuel brut futur</label>
+                                    <input type="number" id="futureIncome" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="50000">
+                                </div>
+                                <div>
+                                    <label for="futureActivity" class="block text-sm font-medium text-gray-600">Type d'activité future</label>
+                                    <select id="futureActivity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                        <option value="private">Salarié Privé</option>
+                                        <option value="public">Fonctionnaire</option>
+                                        <option value="liberal">Indépendant / Libéral</option>
+                                        <option value="msa">Agriculteur (MSA)</option>
+                                    </select>
+                                </div>
+                                <button id="toggle-multi-plan-btn" class="text-sm text-indigo-600 hover:underline mt-2">Passer à une hypothèse pluriactivité</button>
+                            </div>
+                             <div id="multi-future-plan" class="hidden">
+                                <h3 class="text-md font-semibold text-gray-600">Plan de Carrière Future Détaillé</h3>
+                                <table id="future-career-table" class="w-full text-sm mt-2">
+                                    <thead class="bg-gray-200">
+                                        <tr>
+                                            <th class="px-2 py-1 text-left">Durée (ans)</th>
+                                            <th class="px-2 py-1 text-left">Activité</th>
+                                            <th class="px-2 py-1 text-left">Revenu Annuel (€)</th>
+                                            <th class="px-2 py-1 text-left"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                                <button id="addFutureRowBtn" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-3 rounded-lg w-full mt-2">
+                                    + Ajouter une période
+                                </button>
+                                <div id="future-validation-message" class="text-sm text-center font-semibold mt-2"></div>
+                                <button id="toggle-simple-plan-btn" class="text-sm text-indigo-600 hover:underline mt-2">Retour à l'hypothèse simple</button>
+                            </div>
+                        </div>
+                    </div>
+                   
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg mt-6">
+                         <h2 class="text-xl font-semibold text-yellow-800 mb-2">Analyse & Optimisations</h2>
+                        <div id="analysis-container" class="text-sm text-gray-700 space-y-2"></div>
+                    </div>
+
+                    <div class="mt-6 flex justify-between items-center">
+                         <button id="backToStep1Btn" class="bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-600">
+                            &larr; Modifier la carrière
+                        </button>
+                        <button id="generateReportBtn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+                            Aperçu du Rapport
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Colonne de droite: Résultats -->
+                <div id="results" class="result-card">
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6">Résultats de la simulation</h2>
+                       
+                        <div id="results-container"></div>
+                       
+                        <div id="chart-wrapper" class="mt-6 hidden">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Répartition de la pension totale</h3>
+                            <div id="chart-container" class="space-y-2 text-xs"></div>
+                        </div>
+
+                        <div id="total-wrapper" class="mt-8 pt-6 border-t-2 border-blue-200 text-center hidden">
+                            <p class="text-lg text-gray-600">Montant total estimé de votre retraite :</p>
+                            <p class="text-4xl font-bold text-gray-900 my-2" id="pensionTotalAnnuel">€ / an</p>
+                            <p class="text-2xl text-gray-700" id="pensionTotalMensuel">(soit € / mois brut)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+       
+        <!-- Modal pour le rapport -->
+        <div id="reportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white">
+                <div id="reportPrintableContent" class="p-4">
+                    <h3 class="text-2xl leading-6 font-bold text-gray-900 text-center mb-4">Rapport de Simulation Retraite</h3>
+                   
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-2">Hypothèses de la Simulation</h4>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <p><strong>Date de la simulation:</strong> <span id="reportDate"></span></p>
+                            <p><strong>Année de naissance:</strong> <span id="reportBirthYear"></span></p>
+                            <p><strong>Date de départ envisagée:</strong> <span id="reportRetirementDate"></span></p>
+                            <p><strong>Âge de départ:</strong> <span id="reportRetirementAge"></span></p>
+                            <p><strong>Nombre d'enfants:</strong> <span id="reportChildren"></span></p>
+                            <p><strong>Plan de carrière futur:</strong> <span id="reportFuturePlan"></span></p>
+                        </div>
+                    </div>
+
+                    <hr class="my-6">
+                    <h4 class="text-lg font-semibold text-gray-800">Résultat Global</h4>
+                    <p class="text-3xl font-bold text-indigo-600 text-center my-3" id="reportTotalPension"></p>
+                    <div class="w-full mx-auto my-4" style="max-width: 350px;">
+                        <canvas id="reportChart"></canvas>
+                    </div>
+                   
+                    <div id="reportDetailsContainer" class="space-y-4"></div>
+
+                    <hr class="my-6">
+                     <h4 class="text-lg font-semibold text-gray-800">Analyse & Optimisations</h4>
+                     <div id="reportAnalysis" class="text-sm mt-2 bg-yellow-50 p-3 rounded-md"></div>
+                </div>
+                <div class="items-center px-4 py-3 text-center">
+                    <button id="closeReportBtn" class="px-4 py-2 bg-indigo-500 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                        Fermer
+                    </button>
+                     <button id="printReportBtn" onclick="window.print()" class="ml-4 px-4 py-2 bg-gray-600 text-white text-base font-medium rounded-md w-auto shadow-sm hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300">
+                        Imprimer / Sauvegarder en PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DONNÉES GLOBALES ---
+        let pastCareerData = { rows: [], totalTrimesters: 0, lastYear: 0 };
+        let birthYear = 0;
+        let childrenCount = 0;
+        let baselinePensions = {};
+        let baselineRetirementYear = 0;
+        let reportChartInstance = null;
+       
+        // --- CONSTANTES DE CALCUL (Valeurs 2024) ---
+        const PSS = 46368;
+        const AGIRC_ARRCO_POINT_VALUE = 1.4159;
+        const RAFP_POINT_VALUE = 0.05378;
+        const CNAVPL_BASE_POINT_VALUE = 0.6399;
+        const RCI_POINT_VALUE = 1.327;
+        const MSA_RCO_POINT_VALUE = 0.3614;
+        const MSA_FORFAITAIRE_FULL = 3589.66;
+
+        const revalorisationCoefficients = {
+            2023: 1, 2022: 1.053, 2021: 1.107, 2020: 1.123, 2019: 1.134, 2018: 1.149, 2017: 1.16, 2016: 1.171, 2015: 1.173,
+            2014: 1.175, 2013: 1.18, 2012: 1.201, 2011: 1.229, 2010: 1.254, 2009: 1.272, 2008: 1.288, 2007: 1.314, 2006: 1.339,
+            2005: 1.366, 2004: 1.391, 2003: 1.417, 2002: 1.446, 2001: 1.48, 1999: 1.503, 1998: 1.517, 1997: 1.537,
+            1996: 1.56, 1995: 1.591, 1994: 1.621, 1993: 1.646, 1992: 1.679, 1991: 1.728, 1990: 1.791, 1989: 1.868, 1988: 1.929,
+            1987: 1.979, 1986: 2.035, 1985: 2.133, 1984: 2.247, 1983: 2.428, 1982: 2.663, 1981: 2.977, 1980: 3.35, 1979: 3.763,
+            1988: 4.18, 1977: 4.636, 1976: 5.127
+        };
+
+        // --- GESTION DE L'INTERFACE ---
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const addRowBtn = document.getElementById('addRowBtn');
+        const careerTableBody = document.querySelector('#career-table tbody');
+        const proceedToStep2Btn = document.getElementById('proceedToStep2Btn');
+        const backToStep1Btn = document.getElementById('backToStep1Btn');
+        const retirementYearSlider = document.getElementById('retirementYearSlider');
+        const futureAssumptionsContainer = document.getElementById('future-assumptions-container');
+        const simpleFuturePlan = document.getElementById('simple-future-plan');
+        const multiFuturePlan = document.getElementById('multi-future-plan');
+        const toggleMultiPlanBtn = document.getElementById('toggle-multi-plan-btn');
+        const toggleSimplePlanBtn = document.getElementById('toggle-simple-plan-btn');
+        const futureCareerTableBody = document.querySelector('#future-career-table tbody');
+        const addFutureRowBtn = document.getElementById('addFutureRowBtn');
+        const generateReportBtn = document.getElementById('generateReportBtn');
+        const reportModal = document.getElementById('reportModal');
+        const closeReportBtn = document.getElementById('closeReportBtn');
+        const resultsContainer = document.getElementById('results-container');
+        const chartWrapper = document.getElementById('chart-wrapper');
+        const totalWrapper = document.getElementById('total-wrapper');
+
+        function addCareerRow(year = '', income = '', quarters = '') {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-2 py-2"><input type="number" class="year" placeholder="2023" value="${year}"></td>
+                <td class="px-2 py-2">
+                    <select class="activity-type">
+                        <option value="private">Salarié Privé</option>
+                        <option value="public">Fonctionnaire</option>
+                        <option value="liberal">Indépendant</option>
+                        <option value="msa">Agriculteur</option>
+                    </select>
+                </td>
+                <td class="px-2 py-2"><input type="number" class="income" placeholder="45000" value="${income}"></td>
+                <td class="px-2 py-2"><input type="number" class="quarters" placeholder="4" value="${quarters}" max="4"></td>
+                <td class="px-2 py-2">
+                    <select class="observation">
+                        <option value="normal">Normale</option>
+                        <option value="unemployment">Chômage</option>
+                        <option value="sickness">Maladie</option>
+                        <option value="maternity">Maternité</option>
+                        <option value="military">Service Militaire</option>
+                    </select>
+                </td>
+                <td class="px-2 py-2"><button class="removeRowBtn bg-red-500 text-white px-2 py-1 rounded-md">X</button></td>
+            `;
+            careerTableBody.appendChild(row);
+            row.querySelector('.removeRowBtn').addEventListener('click', () => row.remove());
+        }
+       
+        function addFutureRow() {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="p-1"><input type="number" class="future-duration" placeholder="5" value="5"></td>
+                <td class="p-1">
+                    <select class="future-activity">
+                        <option value="private">Salarié Privé</option>
+                        <option value="public">Fonctionnaire</option>
+                        <option value="liberal">Indépendant</option>
+                        <option value="msa">Agriculteur</option>
+                    </select>
+                </td>
+                <td class="p-1"><input type="number" class="future-income" placeholder="50000" value="50000"></td>
+                <td class="p-1"><button class="removeRowBtn bg-red-500 text-white px-2 py-1 rounded-md">X</button></td>
+            `;
+            futureCareerTableBody.appendChild(row);
+            row.querySelector('.removeRowBtn').addEventListener('click', () => { row.remove(); runSimulation(); });
+            row.querySelectorAll('input, select').forEach(el => el.addEventListener('input', runSimulation));
+        }
+
+        addRowBtn.addEventListener('click', () => addCareerRow());
+        addFutureRowBtn.addEventListener('click', addFutureRow);
+
+        toggleMultiPlanBtn.addEventListener('click', () => {
+            simpleFuturePlan.classList.add('hidden');
+            multiFuturePlan.classList.remove('hidden');
+            if (futureCareerTableBody.rows.length === 0) addFutureRow();
+            runSimulation();
+        });
+
+        toggleSimplePlanBtn.addEventListener('click', () => {
+            multiFuturePlan.classList.add('hidden');
+            simpleFuturePlan.classList.remove('hidden');
+            runSimulation();
+        });
+
+        proceedToStep2Btn.addEventListener('click', () => {
+            const rows = careerTableBody.querySelectorAll('tr');
+            if (rows.length === 0) { alert("Veuillez ajouter au moins une année à votre carrière."); return; }
+           
+            birthYear = parseInt(document.getElementById('initialBirthYear').value);
+            childrenCount = parseInt(document.getElementById('initialChildrenCount').value);
+            if (!birthYear) { alert("Veuillez renseigner votre année de naissance."); return; }
+
+            pastCareerData = { rows: [], totalTrimesters: 0, lastYear: 0 };
+           
+            rows.forEach(row => {
+                const year = parseInt(row.querySelector('.year').value);
+                const income = parseFloat(row.querySelector('.income').value);
+                const quarters = parseInt(row.querySelector('.quarters').value);
+                const activityType = row.querySelector('.activity-type').value;
+                const observation = row.querySelector('.observation').value;
+
+                if (!isNaN(year) && !isNaN(income) && !isNaN(quarters)) {
+                    pastCareerData.totalTrimesters += quarters;
+                    pastCareerData.rows.push({ year, income, quarters, activityType, observation });
+                    if (year > pastCareerData.lastYear) pastCareerData.lastYear = year;
+                }
+            });
+           
+            setupSimulationStep();
+            const minRetirementYear = parseInt(retirementYearSlider.min);
+            baselinePensions = calculateProjectedPension(minRetirementYear).pensions;
+            baselineRetirementYear = minRetirementYear;
+
+            step1.classList.remove('active');
+            step2.classList.add('active');
+            runSimulation();
+        });
+       
+        function setupSimulationStep() {
+            const currentYear = new Date().getFullYear();
+            const minYear = Math.max(currentYear, pastCareerData.lastYear + 1);
+            const maxYear = birthYear + 70;
+
+            retirementYearSlider.min = minYear;
+            retirementYearSlider.max = maxYear;
+            retirementYearSlider.value = minYear;
+           
+            document.getElementById('sliderMinLabel').textContent = minYear;
+            document.getElementById('sliderMaxLabel').textContent = maxYear;
+           
+            updateSliderLabels();
+        }
+       
+        function updateSliderLabels() {
+            const year = retirementYearSlider.value;
+            const minYear = retirementYearSlider.min;
+            const maxYear = retirementYearSlider.max;
+            const extraYears = year - minYear;
+           
+            document.getElementById('sliderValueLabel').textContent = year;
+            document.getElementById('retirementAgeLabel').textContent = `${year - birthYear} ans`;
+           
+            const extraYearsLabel = document.getElementById('extraYearsLabel');
+            if (extraYears > 0) {
+                extraYearsLabel.textContent = `(+${extraYears} an${extraYears > 1 ? 's' : ''})`;
+            } else {
+                extraYearsLabel.textContent = '';
+            }
+
+            const highlight = document.querySelector('.slider-highlight');
+            const percentage = (maxYear - minYear) > 0 ? (year - minYear) / (maxYear - minYear) * 100 : 0;
+            highlight.style.width = `${percentage}%`;
+        }
+
+        backToStep1Btn.addEventListener('click', () => {
+            step2.classList.remove('active');
+            step1.classList.add('active');
+            document.getElementById('results').classList.remove('show');
+        });
+
+        function runSimulation() {
+            const retirementYear = parseInt(retirementYearSlider.value);
+            const minRetirementYear = parseInt(retirementYearSlider.min);
+            const futureValidationMessage = document.getElementById('future-validation-message');
+           
+            if (retirementYear > minRetirementYear) {
+                futureAssumptionsContainer.classList.remove('hidden');
+               
+                if (multiFuturePlan.classList.contains('hidden')) { // Simple mode
+                    if (!document.getElementById('futureIncome').value) {
+                         resultsContainer.innerHTML = `<p class="text-center text-gray-500">Veuillez renseigner vos hypothèses pour le futur pour obtenir une simulation.</p>`;
+                         chartWrapper.classList.add('hidden');
+                         totalWrapper.classList.add('hidden');
+                         document.getElementById('results').classList.add('show');
+                         return;
+                    }
+                } else { // Multi-activity mode
+                    const futureRows = futureCareerTableBody.querySelectorAll('tr');
+                    let totalFutureYears = 0;
+                    futureRows.forEach(row => {
+                        totalFutureYears += parseInt(row.querySelector('.future-duration').value) || 0;
+                    });
+
+                    const requiredFutureYears = retirementYear - minRetirementYear;
+                    if (totalFutureYears !== requiredFutureYears) {
+                        futureValidationMessage.textContent = `Votre plan de carrière (${totalFutureYears} ans) ne correspond pas à la durée choisie (${requiredFutureYears} ans).`;
+                        futureValidationMessage.classList.add('text-red-600');
+                        resultsContainer.innerHTML = `<p class="text-center text-red-500">Veuillez ajuster votre plan de carrière future pour qu'il corresponde à la durée sélectionnée.</p>`;
+                        chartWrapper.classList.add('hidden');
+                        totalWrapper.classList.add('hidden');
+                        document.getElementById('results').classList.add('show');
+                        return;
+                    }
+                    futureValidationMessage.textContent = 'Plan de carrière valide.';
+                    futureValidationMessage.classList.remove('text-red-600');
+                    futureValidationMessage.classList.add('text-green-600');
+                }
+
+            } else {
+                futureAssumptionsContainer.classList.add('hidden');
+            }
+
+            const result = calculateProjectedPension(retirementYear);
+            displayResults(result);
+            analyzeCareer(result.finalCareer);
+        }
+       
+        function calculateProjectedPension(retirementYear) {
+            let finalCareerRows = JSON.parse(JSON.stringify(pastCareerData.rows));
+            let finalTotalTrimesters = pastCareerData.totalTrimesters;
+
+            if (simpleFuturePlan.classList.contains('hidden')) { // Multi-activity mode
+                 const futureRows = futureCareerTableBody.querySelectorAll('tr');
+                let currentYear = pastCareerData.lastYear;
+                futureRows.forEach(row => {
+                    const duration = parseInt(row.querySelector('.future-duration').value) || 0;
+                    const income = parseFloat(row.querySelector('.future-income').value) || 0;
+                    const activity = row.querySelector('.future-activity').value;
+                    for (let i = 0; i < duration; i++) {
+                        currentYear++;
+                        finalTotalTrimesters += 4;
+                        finalCareerRows.push({ year: currentYear, income, quarters: 4, activityType: activity, observation: 'normal' });
+                    }
+                });
+            } else { // Simple mode
+                const futureIncome = parseFloat(document.getElementById('futureIncome').value) || 0;
+                const futureActivity = document.getElementById('futureActivity').value;
+                const numberOfFutureYears = retirementYear - 1 - pastCareerData.lastYear;
+
+                if (numberOfFutureYears > 0 && !isNaN(futureIncome)) {
+                    for (let i = 0; i < numberOfFutureYears; i++) {
+                        const year = pastCareerData.lastYear + 1 + i;
+                        finalTotalTrimesters += 4;
+                        finalCareerRows.push({ year, income: futureIncome, quarters: 4, activityType: futureActivity, observation: 'normal' });
+                    }
+                }
+            }
+
+            const requiredTrimesters = getRequiredTrimesters(birthYear);
+            const retirementAge = retirementYear - birthYear;
+            let missingTrimesters = (retirementAge < 67) ? Math.max(0, requiredTrimesters - finalTotalTrimesters) : 0;
+            const decoteTrimesters = Math.min(missingTrimesters, 20);
+
+            let pensions = {};
+
+            // --- Calcul Régime Privé ---
+            const privateCareer = finalCareerRows.filter(r => r.activityType === 'private' && r.observation === 'normal');
+            if (privateCareer.length > 0) {
+                const privateSalaries = privateCareer.map(d => ({...d, revalued: d.income * (revalorisationCoefficients[d.year] || 1) }));
+                privateSalaries.sort((a, b) => b.revalued - a.revalued);
+                const best25Salaries = privateSalaries.slice(0, 25);
+                const finalSAM = best25Salaries.reduce((sum, s) => sum + s.revalued, 0) / Math.max(1, best25Salaries.length);
+                const rate = 50 - (decoteTrimesters * 0.625);
+               
+                let basePension = finalSAM * (rate / 100) * (finalTotalTrimesters / requiredTrimesters);
+                basePension = Math.max(0, basePension);
+                let baseBonus = (childrenCount >= 3) ? basePension * 0.10 : 0;
+               
+                const totalAgircArrcoPoints = finalCareerRows.filter(r => r.activityType === 'private').reduce((acc, d) => {
+                    const T1_base = Math.min(d.income, PSS);
+                    const T2_base = Math.max(0, d.income - PSS);
+                    return acc + (((T1_base * 0.062) + (T2_base * 0.17)) / 18.7669);
+                }, 0);
+                let compPension = totalAgircArrcoPoints * AGIRC_ARRCO_POINT_VALUE;
+                compPension = Math.max(0, compPension);
+                let compBonus = (childrenCount >= 3) ? compPension * 0.10 : 0;
+
+                pensions.private = {
+                    base: basePension + baseBonus,
+                    comp: compPension + compBonus,
+                    details: { finalSAM, rate, baseBonus, totalAgircArrcoPoints, compBonus }
+                };
+            }
+           
+            return { pensions, retirementYear, finalCareer: finalCareerRows, finalTotalTrimesters };
+        }
+
+        retirementYearSlider.addEventListener('input', () => { updateSliderLabels(); runSimulation(); });
+        document.getElementById('futureIncome').addEventListener('input', runSimulation);
+        document.getElementById('futureActivity').addEventListener('change', runSimulation);
+       
+        function displayResults(data) {
+            const { pensions, retirementYear } = data;
+            const chartContainer = document.getElementById('chart-container');
+            resultsContainer.innerHTML = '';
+            chartContainer.innerHTML = '';
+            let totalPensionAnnuelle = 0;
+            let pensionParts = [];
+
+            if (pensions.private) {
+                const { base, comp, details } = pensions.private;
+                const extraYears = retirementYear - baselineRetirementYear;
+                const gainBase = base - (baselinePensions.private?.base || 0);
+                const gainComp = comp - (baselinePensions.private?.comp || 0);
+               
+                let baseGainHTML = (extraYears > 0) ? `<div class="col-span-2 mt-2 text-sm text-green-700 font-medium">Gain pour un départ dans ${extraYears} an(s) : +${gainBase.toFixed(0)} €/an</div>` : '';
+                let compGainHTML = (extraYears > 0) ? `<div class="col-span-2 mt-2 text-sm text-green-700 font-medium">Gain pour un départ dans ${extraYears} an(s) : +${gainComp.toFixed(0)} €/an</div>` : '';
+
+                resultsContainer.innerHTML += `
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-blue-800 border-b pb-2 mb-3">Régime Salarié Privé</h3>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div><span class="font-medium text-gray-600">SAM (Salaire Annuel Moyen) Projeté:</span> <span class="block font-bold">${details.finalSAM.toFixed(0)} €</span></div>
+                            <div><span class="font-medium text-gray-600">Taux:</span> <span class="block font-bold">${details.rate.toFixed(2)}%</span></div>
+                            ${baseGainHTML}
+                        </div>
+                        <p class="text-right text-xl font-semibold mt-2">Pension Base: <span class="text-blue-600">${base.toFixed(2)} €</span></p>
+                        <hr class="my-2">
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                           <div><span class="font-medium text-gray-600">Points Agirc-Arrco:</span> <span class="block font-bold">${details.totalAgircArrcoPoints.toFixed(0)}</span></div>
+                           ${compGainHTML}
+                        </div>
+                        <p class="text-right text-xl font-semibold mt-2">Pension Complémentaire: <span class="text-blue-600">${comp.toFixed(2)} €</span></p>
+                    </div>`;
+                totalPensionAnnuelle += base + comp;
+                pensionParts.push({label: 'Base Privé', value: base, color: 'rgb(59, 130, 246)'});
+                pensionParts.push({label: 'Compl. Privé', value: comp, color: 'rgb(14, 165, 233)'});
+            }
+           
+            chartWrapper.classList.remove('hidden');
+            totalWrapper.classList.remove('hidden');
+
+            pensionParts.forEach(part => {
+                const percentage = totalPensionAnnuelle > 0 ? (part.value / totalPensionAnnuelle) * 100 : 0;
+                chartContainer.innerHTML += `
+                    <div class="flex items-center">
+                        <div class="w-24">${part.label}</div>
+                        <div class="flex-1 bg-gray-200 rounded-full h-4">
+                            <div class="chart-bar h-4 rounded-full text-white text-center text-xs leading-4" style="width: ${percentage}%; background-color: ${part.color}">${percentage.toFixed(1)}%</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('pensionTotalAnnuel').textContent = `${totalPensionAnnuelle.toFixed(2)} € / an`;
+            document.getElementById('pensionTotalMensuel').textContent = `(soit ${(totalPensionAnnuelle / 12).toFixed(2)} € / mois brut)`;
+            document.getElementById('results').classList.add('show');
+        }
+
+        function analyzeCareer(finalCareer) {
+            const analysisContainer = document.getElementById('analysis-container');
+            analysisContainer.innerHTML = '';
+            let anomalies = [];
+            let firstYear = Infinity;
+
+            finalCareer.forEach(row => {
+                if (row.year < firstYear && row.quarters > 0) firstYear = row.year;
+                if (row.income > 0 && row.quarters === 0) {
+                    anomalies.push(`<li>⚠️ Année ${row.year}: Revenu déclaré sans trimestre validé. À vérifier.</li>`);
+                }
+                if (row.income === 0 && row.observation === 'normal' && row.quarters > 0) {
+                     anomalies.push(`<li>⚠️ Année ${row.year}: Trimestres validés sans revenu (période spéciale ?).</li>`);
+                }
+            });
+
+            if (anomalies.length > 0) {
+                analysisContainer.innerHTML += `<ul>${anomalies.join('')}</ul>`;
+            } else {
+                analysisContainer.innerHTML += `<p class="text-green-600">✅ Aucune anomalie évidente détectée dans votre carrière.</p>`;
+            }
+           
+            const ageAtFirstQuarter = firstYear - birthYear;
+            if (ageAtFirstQuarter <= 20) {
+                 analysisContainer.innerHTML += `<p class="mt-2">💡 Vous avez commencé à travailler avant ${ageAtFirstQuarter+1} ans. Vous pourriez être éligible au dispositif **Carrière Longue**.</li>`;
+            }
+        }
+       
+        generateReportBtn.addEventListener('click', () => {
+            const data = calculateProjectedPension(parseInt(retirementYearSlider.value));
+            generateAndShowReport(data);
+        });
+
+        closeReportBtn.addEventListener('click', () => {
+            reportModal.classList.add('hidden');
+        });
+       
+        function generateAndShowReport(data) {
+            const { pensions, retirementYear } = data;
+            const retirementAge = retirementYear - birthYear;
+            let totalPension = 0;
+            let labels = [];
+            let values = [];
+            let colors = [];
+            let detailsHTML = '';
+            let futurePlanText = 'Départ immédiat (pas de projection).';
+
+            if (simpleFuturePlan.classList.contains('hidden')) { // Multi-activity mode
+                const futureRows = futureCareerTableBody.querySelectorAll('tr');
+                if(futureRows.length > 0) {
+                    futurePlanText = Array.from(futureRows).map(row => {
+                        const duration = row.querySelector('.future-duration').value;
+                        const activity = row.querySelector('.future-activity option:checked').text;
+                        const income = row.querySelector('.future-income').value;
+                        return `${duration} an(s) comme ${activity} à ${income}€/an`;
+                    }).join('; ');
+                }
+            } else { // Simple mode
+                if (retirementYear > baselineRetirementYear) {
+                    futurePlanText = `Activité de ${document.getElementById('futureActivity').options[document.getElementById('futureActivity').selectedIndex].text} à ${document.getElementById('futureIncome').value}€/an.`;
+                }
+            }
+
+
+            if (pensions.private) {
+                const { base, comp, details } = pensions.private;
+                totalPension += base + comp;
+                labels.push('Base Privé', 'Compl. Privé');
+                values.push(base, comp);
+                colors.push('rgb(59, 130, 246)', 'rgb(14, 165, 233)');
+                detailsHTML += `
+                    <div class="mt-4">
+                        <h5 class="font-semibold text-blue-800">Détail Régime Salarié Privé</h5>
+                        <table class="w-full text-sm mt-1 text-left">
+                            <tr class="border-b"><td class="py-1">Pension de base annuelle:</td><td class="text-right font-semibold">${base.toFixed(2)} €</td></tr>
+                            <tr class="border-b"><td class="py-1 pl-4">SAM (Salaire Annuel Moyen) Projeté:</td><td class="text-right">${details.finalSAM.toFixed(0)} €</td></tr>
+                            <tr class="border-b"><td class="py-1 pl-4">Taux de liquidation:</td><td class="text-right">${details.rate.toFixed(2)} %</td></tr>
+                            <tr class="border-b"><td class="py-1">Pension complémentaire annuelle:</td><td class="text-right font-semibold">${comp.toFixed(2)} €</td></tr>
+                            <tr class="border-b"><td class="py-1 pl-4">Total Points Agirc-Arrco:</td><td class="text-right">${details.totalAgircArrcoPoints.toFixed(0)}</td></tr>
+                        </table>
+                    </div>`;
+            }
+            // Add other regimes here...
+
+            document.getElementById('reportDate').textContent = new Date().toLocaleDateString('fr-FR');
+            document.getElementById('reportBirthYear').textContent = birthYear;
+            document.getElementById('reportRetirementDate').textContent = `01/01/${retirementYear}`;
+            document.getElementById('reportRetirementAge').textContent = `${retirementAge} ans`;
+            document.getElementById('reportChildren').textContent = childrenCount;
+            document.getElementById('reportFuturePlan').textContent = futurePlanText;
+            document.getElementById('reportTotalPension').textContent = `${totalPension.toFixed(2)} € / an`;
+            document.getElementById('reportAnalysis').innerHTML = document.getElementById('analysis-container').innerHTML;
+            document.getElementById('reportDetailsContainer').innerHTML = detailsHTML;
+
+            const ctx = document.getElementById('reportChart').getContext('2d');
+            if (reportChartInstance) {
+                reportChartInstance.destroy();
+            }
+            reportChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+
+            reportModal.classList.remove('hidden');
+        }
+
+        function getRequiredTrimesters(year) {
+            if (year <= 1957) return 166;
+            if (year >= 1958 && year <= 1960) return 167;
+            if (year === 1961) return 168;
+            if (year === 1962) return 169;
+            if (year === 1963) return 170;
+            if (year === 1964) return 171;
+            if (year >= 1965) return 172;
+            return 172;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            addCareerRow(2023, 46000, 4);
+            addCareerRow(2022, 44000, 4);
+            addCareerRow(2021, 42000, 4);
+        });
+    </script>
+</body>
+</html>
