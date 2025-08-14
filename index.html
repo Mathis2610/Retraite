@@ -264,39 +264,101 @@
     }
 
     // ---------- Import PDF ----------
-    async function handleRSIFile(file) {
-      if (!file) return;
-      try {
-        if (importSummary) importSummary.textContent = 'Lecture du PDF…';
-        const rights = await parseRSI(file);
-        console.log('[RSI] droits parsés:', rights);
-        parsedRights = rights;
+    <script type="module">
+  import { parseRSI } from './parser.js';
+  // Si tu utilises aussi mapping.js ailleurs, garde l’import.
+  // import { employmentsToYearMap } from './mapping.js';
 
-        // Remplit le tableau
-        clearCareerTable();
-        const perYearIncome = employmentsToYearMap(rights.employments || []);
-        (rights.years || [])
-          .sort((a,b)=>a.year-b.year)
-          .forEach(({year, quarters}) => {
-            const m = perYearIncome[year] || {};
-            addCareerRow(year, m.income || '', quarters || '', m.activityType || 'private', 'normal');
-          });
+  // --- RÉFÉRENCES UI EXISTANTES ---
+  const careerTableBody = document.querySelector('#career-table tbody');
+  const rsiFileInput = document.getElementById('rsiFile');           // le <input type="file">
+  const rsiDropzone  = document.getElementById('rsi-dropzone');      // la zone drag&drop (si tu l’as)
+  const addRowBtn    = document.getElementById('addRowBtn');         // bouton “+ Ajouter une année”
 
-        // Résumé lisible
-        if (importSummary) {
-          importSummary.innerHTML = `
-            <div><strong>Années détectées :</strong> ${(rights.years||[]).map(r=>r.year).join(', ') || '—'}</div>
-            <div><strong>Trimestres acquis :</strong> ${rights.acquiredQuarters ?? 'N/A'} / ${rights.requiredQuarters ?? 'N/A'}</div>
-            <div><strong>Total points Agirc-Arrco :</strong> ${rights.agircArrco?.totalPoints ?? 'N/A'}</div>
-            <div><strong>Valeur du point :</strong> ${rights.agircArrco?.pointValue ?? 'N/A'} €</div>
-          `;
-        }
-      } catch (e) {
-        console.error('[RSI] Erreur parseRSI:', e);
-        alert('Impossible de lire ce PDF. Ouvre la console (F12) → onglet Console pour le détail.');
-        if (importSummary) importSummary.textContent = 'Échec de lecture du PDF.';
+  // --- FONCTION QUI AJOUTE UNE LIGNE (utilise ta version existante si elle est ailleurs) ---
+  function addCareerRow(year = '', income = '', quarters = '') {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td class="px-2 py-2"><input type="number" class="year" placeholder="2023" value="${year}"></td>
+      <td class="px-2 py-2">
+        <select class="activity-type">
+          <option value="private">Salarié Privé</option>
+          <option value="public">Fonctionnaire</option>
+          <option value="liberal">Indépendant</option>
+          <option value="msa">Agriculteur</option>
+        </select>
+      </td>
+      <td class="px-2 py-2"><input type="number" class="income" placeholder="45000" value="${income}"></td>
+      <td class="px-2 py-2"><input type="number" class="quarters" placeholder="4" value="${quarters}" max="4"></td>
+      <td class="px-2 py-2">
+        <select class="observation">
+          <option value="normal">Normale</option>
+          <option value="unemployment">Chômage</option>
+          <option value="sickness">Maladie</option>
+          <option value="maternity">Maternité</option>
+          <option value="military">Service Militaire</option>
+        </select>
+      </td>
+      <td class="px-2 py-2"><button class="removeRowBtn bg-red-500 text-white px-2 py-1 rounded-md">X</button></td>
+    `;
+    careerTableBody.appendChild(row);
+    row.querySelector('.removeRowBtn').addEventListener('click', () => row.remove());
+  }
+
+  // --- IMPORT PDF -> REMPLIR LE TABLEAU (modifie seulement le tableau, rien d’autre) ---
+  async function handleRSIFile(file) {
+    if (!file) return;
+    try {
+      const rights = await parseRSI(file);
+
+      // On part des années détectées par le parser : [{year, quarters}, ...]
+      const years = (rights.years || [])
+        .map(y => ({ year: Number(y.year), quarters: Number(y.quarters) || '' }))
+        .sort((a, b) => a.year - b.year);
+
+      // Vide le tableau puis le remplit
+      careerTableBody.innerHTML = '';
+      for (const { year, quarters } of years) {
+        // Laisse le revenu vide (modifiable après import)
+        addCareerRow(year, '', quarters);
       }
+
+      // (Optionnel) Si tu veux aussi pré-remplir les revenus à partir d’un mapping,
+      // dé-commente et adapte si tu as des données d’emplois salaires dans le PDF :
+      //
+      // const byYear = employmentsToYearMap(rights.employments || []);
+      // for (const tr of careerTableBody.querySelectorAll('tr')) {
+      //   const y = Number(tr.querySelector('.year').value);
+      //   if (byYear[y]) {
+      //     tr.querySelector('.income').value = byYear[y].income || '';
+      //     tr.querySelector('.activity-type').value = byYear[y].activityType || 'private';
+      //   }
+      // }
+
+    } catch (err) {
+      console.error('[RSI] Erreur parseRSI:', err);
+      // Laisse juste le tableau tel quel, l’utilisateur peut saisir à la main.
     }
+  }
+
+  // --- HOOKS IMPORT (click + drag&drop) ---
+  if (rsiFileInput) {
+    rsiFileInput.addEventListener('change', (e) => handleRSIFile(e.target.files[0]));
+  }
+  if (rsiDropzone) {
+    ['dragenter','dragover'].forEach(ev =>
+      rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.add('bg-gray-50'); })
+    );
+    ['dragleave','drop'].forEach(ev =>
+      rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.remove('bg-gray-50'); })
+    );
+    rsiDropzone.addEventListener('drop', e => handleRSIFile(e.dataTransfer.files[0]));
+    rsiDropzone.addEventListener('click', () => rsiFileInput?.click());
+  }
+
+  // Le bouton “+ Ajouter une année” reste inchangé : on ajoute une ligne vierge
+  if (addRowBtn) addRowBtn.addEventListener('click', () => addCareerRow());
+</script>
 
     // ---------- Collecte / Setup ----------
     function collectCareerFromTable() {
