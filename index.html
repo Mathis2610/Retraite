@@ -112,6 +112,11 @@
                 <p class="text-gray-500 mt-2">Saisissez les informations de votre Relevé de Situation Individuelle (RSI).</p>
             </div>
 
+            <div class="flex items-center gap-4 mb-6">
+                <input type="file" id="rsiPdf" accept="application/pdf">
+                <button id="fillExampleBtn" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300">Remplir avec l’exemple</button>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div>
                     <label for="initialBirthYear" class="block text-sm font-medium text-gray-600">Année de naissance</label>
@@ -798,6 +803,23 @@
             addCareerRow(2022, 44000, 4);
             addCareerRow(2021, 42000, 4);
         });
+    </script>
+
+    <script type="module">
+      import { parseRSI } from "./parser.js";
+      const pdfInput = document.getElementById("rsiPdf");
+      const exampleBtn = document.getElementById("fillExampleBtn");
+
+      pdfInput.addEventListener("change", async e => {
+        const file = e.target.files[0];
+        const data = await parseRSI(file);
+        // TODO : pré-remplir les champs avec `data`
+      });
+
+      exampleBtn.addEventListener("click", async () => {
+        const data = await parseRSI("rise.pdf");
+        // TODO : pré-remplir les champs avec `data`
+      });
     </script>
 </body>
 </html>
