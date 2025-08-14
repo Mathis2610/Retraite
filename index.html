@@ -1,15 +1,6 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
-    <!-- PDF.js (global) -->
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.min.js"></script>
-  <script>
-    // Indique le worker correspondant
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.5.136/build/pdf.worker.min.js";
-  </script>
-
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Simulateur de Retraite Avancé</title>
@@ -19,7 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- PDF.js: charge en différé et règle le worker quand la lib est prête -->
+  <!-- pdf.js : on charge la lib PUIS on règle le worker dans onload -->
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.js"
     defer
@@ -27,23 +18,20 @@
   </script>
 
   <style>
-    body{font-family:'Inter',sans-serif}
-    .step{display:none}.step.active{display:block}
-    .result-card{transition:all .5s; opacity:0; transform:translateY(20px); max-height:0; overflow:hidden}
-    .result-card.show{opacity:1; transform:translateY(0); max-height:5000px}
-    #career-table input,#career-table select,#future-career-table input,#future-career-table select{
-      width:100%; padding:.5rem; border-radius:.375rem; border:1px solid #d1d5db;
-    }
-    .slider-container{position:relative;height:1.5rem;display:flex;align-items:center;background:#e5e7eb;border-radius:.5rem}
-    .slider-highlight{position:absolute;left:0;top:0;height:100%;background:#4ade80;border-radius:.5rem;z-index:1;pointer-events:none;transition:width .1s linear}
-    input[type=range]{position:relative;z-index:2;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;width:100%}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;margin-top:-6px;background:#4f46e5;height:1.5rem;width:1.5rem;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #cbd5e1}
+    body{font-family: 'Inter', sans-serif;}
+    .step{display:none;}
+    .step.active{display:block;}
+    input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer;width:100%;}
+    input[type=range]:focus{outline:none;}
+    input[type=range]::-webkit-slider-runnable-track{background:transparent;height:.5rem;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;margin-top:-6px;background:#4f46e5;height:1.5rem;width:1.5rem;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px #cbd5e1;}
+    .dropzone{border:2px dashed #d1d5db;border-radius:.5rem;min-height:64px;display:flex;align-items:center;justify-content:center;text-align:center;color:#6b7280}
+    .dropzone.highlight{background:#f8fafc}
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 flex items-start justify-center">
+<body class="bg-gray-100 min-h-screen p-4">
 
-  <div class="w-full max-w-6xl bg-white rounded-2xl shadow-lg p-6 md:p-8">
-
+  <div class="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8">
     <!-- ÉTAPE 1 -->
     <div id="step1" class="step active">
       <div class="text-center mb-8">
@@ -51,7 +39,7 @@
         <p class="text-gray-500 mt-2">Importez votre Relevé de Situation Individuelle (RSI) ou saisissez manuellement.</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div>
           <label for="initialBirthYear" class="block text-sm font-medium text-gray-600">Année de naissance</label>
           <input type="number" id="initialBirthYear" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="1980">
@@ -60,29 +48,31 @@
           <label for="initialChildrenCount" class="block text-sm font-medium text-gray-600">Nombre d'enfants</label>
           <input type="number" id="initialChildrenCount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="2">
         </div>
-        <div class="col-span-2 flex items-end gap-3">
-          <label for="rsiFileInput" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-green-700 flex items-center gap-2">
-            <span>📄</span> Importer mon relevé (PDF)
+        <div class="md:col-span-2 flex items-end">
+          <label for="rsiFile" class="inline-flex items-center bg-green-600 text-white font-semibold py-2 px-4 rounded-lg cursor-pointer hover:bg-green-700">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path d="M8 12a1 1 0 102 0V5.414l1.293 1.293a1 1 0 101.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3A1 1 0 006.293 6.707L7.586 5.414V12z"/><path d="M3 13a2 2 0 012-2h10a2 2 0 012 2v3a1 1 0 11-2 0v-3H5v3a1 1 0 11-2 0v-3z"/></svg>
+            Importer mon relevé (PDF)
           </label>
-          <input type="file" id="rsiFileInput" accept="application/pdf" class="hidden"/>
+          <input type="file" id="rsiFile" accept="application/pdf" class="hidden">
         </div>
       </div>
 
-      <div id="rsiDropzone" class="p-4 border-2 border-dashed rounded-md text-center text-gray-600 cursor-pointer mb-3">
-        Glissez‑déposez votre PDF ici (ou cliquez)
+      <!-- Dropzone -->
+      <div id="rsi-dropzone" class="dropzone mb-4">
+        Glissez-déposez votre PDF ici (ou cliquez)
       </div>
-      <div id="import-summary" class="text-sm text-gray-700 mb-4"></div>
 
+      <!-- Tableau carrière -->
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200" id="career-table">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Année</th>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type d'Activité</th>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Revenu / Traitement (€)</th>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trimestres Validés</th>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Observations</th>
-              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Année</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type d'Activité</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenu / Traitement (€)</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trimestres Validés</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observations</th>
+              <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200"></tbody>
@@ -93,141 +83,88 @@
         <button id="addRowBtn" class="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">
           + Ajouter une année
         </button>
-        <button id="proceedToStep2Btn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-          Analyser la carrière et simuler →
+        <button id="proceedToStep2Btn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700">
+          Analyser la carrière et simuler &rarr;
         </button>
       </div>
     </div>
 
-    <!-- ÉTAPE 2 -->
+    <!-- ÉTAPE 2 (squelette conservé pour ne rien casser côté IDs/boutons) -->
     <div id="step2" class="step">
       <div class="text-center mb-8">
         <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Étape 2 : Analyse et Simulation</h1>
-        <p class="text-gray-500 mt-2">Projetez votre retraite et visualisez les résultats.</p>
+        <p class="text-gray-500 mt-2">Projetez votre avenir et visualisez les optimisations possibles.</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <div class="bg-gray-50 p-6 rounded-lg space-y-6">
             <h2 class="text-xl font-semibold text-gray-700">Projection Future</h2>
-
             <div>
-              <label class="block text-sm font-medium text-gray-600 mb-2" for="retirementYearSlider">Année de départ à la retraite</label>
-              <div class="slider-container">
-                <div class="slider-highlight"></div>
-                <input type="range" id="retirementYearSlider">
-              </div>
+              <label for="retirementYearSlider" class="block text-sm font-medium text-gray-600 mb-2">Année de départ à la retraite</label>
+              <input type="range" id="retirementYearSlider" min="2025" max="2050" value="2025">
               <div class="flex justify-between text-sm text-gray-500 mt-2">
-                <span id="sliderMinLabel"></span>
-                <span class="font-bold text-indigo-600 text-lg" id="sliderValueLabel"></span>
-                <span id="sliderMaxLabel"></span>
+                <span id="sliderMinLabel">2025</span>
+                <span class="font-bold text-indigo-600 text-lg" id="sliderValueLabel">2025</span>
+                <span id="sliderMaxLabel">2050</span>
               </div>
               <p class="text-center text-sm text-gray-600 mt-1">
-                Âge de départ : <span id="retirementAgeLabel" class="font-bold"></span>
+                Âge de départ : <span id="retirementAgeLabel" class="font-bold">—</span>
                 <span id="extraYearsLabel" class="text-green-600 font-semibold"></span>
               </p>
             </div>
-
-            <div id="future-assumptions-container" class="hidden space-y-4 pt-4 border-t border-gray-200">
-              <div id="simple-future-plan">
-                <h3 class="text-md font-semibold text-gray-600">Hypothèse Simple</h3>
-                <div>
-                  <label for="futureIncome" class="block text-sm font-medium text-gray-600">Revenu annuel futur (brut)</label>
-                  <input type="number" id="futureIncome" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" value="50000">
-                </div>
-                <div>
-                  <label for="futureActivity" class="block text-sm font-medium text-gray-600">Type d'activité future</label>
-                  <select id="futureActivity" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                    <option value="private">Salarié Privé</option>
-                    <option value="public">Fonctionnaire</option>
-                    <option value="liberal">Indépendant</option>
-                    <option value="msa">Agriculteur</option>
-                  </select>
-                </div>
-                <!-- (boutons pluriactivité masqués pour rester concis) -->
-              </div>
-            </div>
           </div>
 
-          <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-lg mt-6">
-            <h2 class="text-xl font-semibold text-yellow-800 mb-2">Analyse & Optimisations</h2>
-            <div id="analysis-container" class="text-sm text-gray-700 space-y-2"></div>
+          <div class="mt-6 flex justify-between items-center">
+            <button id="backToStep1Btn" class="bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-600">
+              &larr; Modifier la carrière
+            </button>
+            <button id="generateReportBtn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">
+              Aperçu du Rapport
+            </button>
           </div>
         </div>
 
-        <div id="results" class="result-card">
-          <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6">Résultats de la simulation</h2>
-            <div id="results-container"></div>
-
-            <div id="chart-wrapper" class="mt-6 hidden">
-              <h3 class="text-lg font-semibold text-gray-800 mb-2">Répartition de la pension totale</h3>
-              <div id="chart-container" class="space-y-2 text-xs"></div>
-            </div>
-
-            <div id="total-wrapper" class="mt-8 pt-6 border-t-2 border-blue-200 text-center hidden">
-              <p class="text-lg text-gray-600">Montant total estimé :</p>
-              <p class="text-4xl font-bold text-gray-900 my-2" id="pensionTotalAnnuel">€ / an</p>
-              <p class="text-2xl text-gray-700" id="pensionTotalMensuel">(soit € / mois brut)</p>
-            </div>
+        <div id="results" class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-r-lg">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6">Résultats de la simulation</h2>
+          <div id="results-container"></div>
+          <div id="chart-wrapper" class="mt-6 hidden">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Répartition de la pension totale</h3>
+            <div id="chart-container" class="space-y-2 text-xs"></div>
+          </div>
+          <div id="total-wrapper" class="mt-8 pt-6 border-t-2 border-blue-200 text-center hidden">
+            <p class="text-lg text-gray-600">Montant total estimé de votre retraite :</p>
+            <p class="text-4xl font-bold text-gray-900 my-2" id="pensionTotalAnnuel">€ / an</p>
+            <p class="text-2xl text-gray-700" id="pensionTotalMensuel">(soit € / mois brut)</p>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- ----- LOGIQUE ----- -->
+  <!-- ===== JS ===== -->
   <script type="module">
     import { parseRSI } from './parser.js';
-    import { employmentsToYearMap } from './mapping.js';
 
-    // ---------- CONST CALCUL ----------
-    const PSS = 46368;
-    const AGIRC_ARRCO_POINT_VALUE = 1.4159;
-    const revalorisationCoefficients = {
-      2023:1, 2022:1.053, 2021:1.107, 2020:1.123, 2019:1.134, 2018:1.149, 2017:1.16, 2016:1.171, 2015:1.173,
-      2014:1.175, 2013:1.18, 2012:1.201, 2011:1.229, 2010:1.254, 2009:1.272, 2008:1.288, 2007:1.314, 2006:1.339,
-      2005:1.366, 2004:1.391, 2003:1.417, 2002:1.446, 2001:1.48, 1999:1.503, 1998:1.517, 1997:1.537,
-      1996:1.56, 1995:1.591, 1994:1.621, 1993:1.646, 1992:1.679, 1991:1.728, 1990:1.791, 1989:1.868, 1988:1.929,
-      1987:1.979, 1986:2.035, 1985:2.133, 1984:2.247, 1983:2.428, 1982:2.663, 1981:2.977, 1980:3.35, 1979:3.763,
-      1978:4.18, 1977:4.636, 1976:5.127
-    };
-
-    // ---------- Sélecteurs ----------
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const addRowBtn = document.getElementById('addRowBtn');
-    const proceedToStep2Btn = document.getElementById('proceedToStep2Btn');
-    const careerTableBody = document.querySelector('#career-table tbody');
-    const rsiFileInput = document.getElementById('rsiFileInput');
-    const rsiDropzone = document.getElementById('rsiDropzone');
-    const importSummary = document.getElementById('import-summary');
-
-    const retirementYearSlider = document.getElementById('retirementYearSlider');
-    const futureAssumptionsContainer = document.getElementById('future-assumptions-container');
-    const futureIncomeEl = document.getElementById('futureIncome');
-    const futureActivityEl = document.getElementById('futureActivity');
-
-    const resultsCard = document.getElementById('results');
-    const resultsContainer = document.getElementById('results-container');
-    const chartWrapper = document.getElementById('chart-wrapper');
-    const chartContainer = document.getElementById('chart-container');
-    const totalWrapper = document.getElementById('total-wrapper');
-
-    // ---------- État ----------
+    // ÉTAT GLOBAL minimal pour conserver la navigation Step1/Step2
     let pastCareerData = { rows: [], totalTrimesters: 0, lastYear: 0 };
     let birthYear = 1980;
-    let childrenCount = 2;
-    let baselinePensions = {};
-    let baselineRetirementYear = 0;
-    let parsedRights = {};
 
-    // ---------- Utilitaires UI ----------
-    function addCareerRow(year = '', income = '', quarters = '', activityType='private', observation='normal') {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="px-2 py-2"><input type="number" class="year" value="${year || ''}" placeholder="2023"></td>
+    // RÉFÉRENCES
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const rsiFileInput = document.getElementById('rsiFile');
+    const rsiDropzone  = document.getElementById('rsi-dropzone');
+    const careerTableBody = document.querySelector('#career-table tbody');
+    const addRowBtn = document.getElementById('addRowBtn');
+    const proceedToStep2Btn = document.getElementById('proceedToStep2Btn');
+    const backToStep1Btn = document.getElementById('backToStep1Btn');
+
+    // UI helpers
+    function addCareerRow(year = '', income = '', quarters = '') {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="px-2 py-2"><input type="number" class="year" placeholder="2023" value="${year}"></td>
         <td class="px-2 py-2">
           <select class="activity-type">
             <option value="private">Salarié Privé</option>
@@ -236,8 +173,8 @@
             <option value="msa">Agriculteur</option>
           </select>
         </td>
-        <td class="px-2 py-2"><input type="number" class="income" value="${income || ''}" placeholder="45000"></td>
-        <td class="px-2 py-2"><input type="number" class="quarters" value="${quarters || ''}" placeholder="4" max="4"></td>
+        <td class="px-2 py-2"><input type="number" class="income" placeholder="45000" value="${income}"></td>
+        <td class="px-2 py-2"><input type="number" class="quarters" placeholder="4" value="${quarters}" max="4"></td>
         <td class="px-2 py-2">
           <select class="observation">
             <option value="normal">Normale</option>
@@ -249,371 +186,84 @@
         </td>
         <td class="px-2 py-2"><button class="removeRowBtn bg-red-500 text-white px-2 py-1 rounded-md">X</button></td>
       `;
-      careerTableBody.appendChild(tr);
-      tr.querySelector('.activity-type').value = activityType;
-      tr.querySelector('.observation').value = observation;
-      tr.querySelector('.removeRowBtn').addEventListener('click', () => { tr.remove(); toggleProceedAvailability(); });
-      toggleProceedAvailability();
+      careerTableBody.appendChild(row);
+      row.querySelector('.removeRowBtn').addEventListener('click', () => row.remove());
     }
 
-    function clearCareerTable(){ careerTableBody.innerHTML=''; toggleProceedAvailability(); }
+    // IMPORT PDF -> Remplit le tableau (unifié)
+    async function handleRSIFile(file) {
+      if (!file) return;
+      try {
+        const rights = await parseRSI(file);
+        const years = (rights.years || [])
+          .map(y => ({ year: Number(y.year), quarters: Number(y.quarters) || '' }))
+          .sort((a,b) => a.year - b.year);
 
-    function toggleProceedAvailability() {
-      const hasRows = careerTableBody.querySelectorAll('tr').length > 0;
-      proceedToStep2Btn.disabled = !hasRows;
-    }
-
-    // ---------- Import PDF ----------
-    <script type="module">
-  import { parseRSI } from './parser.js';
-  // Si tu utilises aussi mapping.js ailleurs, garde l’import.
-  // import { employmentsToYearMap } from './mapping.js';
-
-  // --- RÉFÉRENCES UI EXISTANTES ---
-  const careerTableBody = document.querySelector('#career-table tbody');
-  const rsiFileInput = document.getElementById('rsiFile');           // le <input type="file">
-  const rsiDropzone  = document.getElementById('rsi-dropzone');      // la zone drag&drop (si tu l’as)
-  const addRowBtn    = document.getElementById('addRowBtn');         // bouton “+ Ajouter une année”
-
-  // --- FONCTION QUI AJOUTE UNE LIGNE (utilise ta version existante si elle est ailleurs) ---
-  function addCareerRow(year = '', income = '', quarters = '') {
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td class="px-2 py-2"><input type="number" class="year" placeholder="2023" value="${year}"></td>
-      <td class="px-2 py-2">
-        <select class="activity-type">
-          <option value="private">Salarié Privé</option>
-          <option value="public">Fonctionnaire</option>
-          <option value="liberal">Indépendant</option>
-          <option value="msa">Agriculteur</option>
-        </select>
-      </td>
-      <td class="px-2 py-2"><input type="number" class="income" placeholder="45000" value="${income}"></td>
-      <td class="px-2 py-2"><input type="number" class="quarters" placeholder="4" value="${quarters}" max="4"></td>
-      <td class="px-2 py-2">
-        <select class="observation">
-          <option value="normal">Normale</option>
-          <option value="unemployment">Chômage</option>
-          <option value="sickness">Maladie</option>
-          <option value="maternity">Maternité</option>
-          <option value="military">Service Militaire</option>
-        </select>
-      </td>
-      <td class="px-2 py-2"><button class="removeRowBtn bg-red-500 text-white px-2 py-1 rounded-md">X</button></td>
-    `;
-    careerTableBody.appendChild(row);
-    row.querySelector('.removeRowBtn').addEventListener('click', () => row.remove());
-  }
-
-  // --- IMPORT PDF -> REMPLIR LE TABLEAU (modifie seulement le tableau, rien d’autre) ---
-  async function handleRSIFile(file) {
-    if (!file) return;
-    try {
-      const rights = await parseRSI(file);
-
-      // On part des années détectées par le parser : [{year, quarters}, ...]
-      const years = (rights.years || [])
-        .map(y => ({ year: Number(y.year), quarters: Number(y.quarters) || '' }))
-        .sort((a, b) => a.year - b.year);
-
-      // Vide le tableau puis le remplit
-      careerTableBody.innerHTML = '';
-      for (const { year, quarters } of years) {
-        // Laisse le revenu vide (modifiable après import)
-        addCareerRow(year, '', quarters);
+        careerTableBody.innerHTML = '';
+        for (const {year, quarters} of years) {
+          addCareerRow(year, '', quarters); // revenu laissé editable
+        }
+      } catch (e) {
+        console.error('[RSI] Erreur parseRSI:', e);
+        // on n’affiche pas de panneau de résumé ; l’utilisateur peut saisir à la main
       }
-
-      // (Optionnel) Si tu veux aussi pré-remplir les revenus à partir d’un mapping,
-      // dé-commente et adapte si tu as des données d’emplois salaires dans le PDF :
-      //
-      // const byYear = employmentsToYearMap(rights.employments || []);
-      // for (const tr of careerTableBody.querySelectorAll('tr')) {
-      //   const y = Number(tr.querySelector('.year').value);
-      //   if (byYear[y]) {
-      //     tr.querySelector('.income').value = byYear[y].income || '';
-      //     tr.querySelector('.activity-type').value = byYear[y].activityType || 'private';
-      //   }
-      // }
-
-    } catch (err) {
-      console.error('[RSI] Erreur parseRSI:', err);
-      // Laisse juste le tableau tel quel, l’utilisateur peut saisir à la main.
     }
-  }
 
-  // --- HOOKS IMPORT (click + drag&drop) ---
-  if (rsiFileInput) {
-    rsiFileInput.addEventListener('change', (e) => handleRSIFile(e.target.files[0]));
-  }
-  if (rsiDropzone) {
-    ['dragenter','dragover'].forEach(ev =>
-      rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.add('bg-gray-50'); })
-    );
-    ['dragleave','drop'].forEach(ev =>
-      rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.remove('bg-gray-50'); })
-    );
-    rsiDropzone.addEventListener('drop', e => handleRSIFile(e.dataTransfer.files[0]));
-    rsiDropzone.addEventListener('click', () => rsiFileInput?.click());
-  }
+    // Dropzone + input
+    if (rsiFileInput) {
+      rsiFileInput.addEventListener('change', e => handleRSIFile(e.target.files[0]));
+    }
+    if (rsiDropzone) {
+      ['dragenter','dragover'].forEach(ev =>
+        rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.add('highlight'); })
+      );
+      ['dragleave','drop'].forEach(ev =>
+        rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.remove('highlight'); })
+      );
+      rsiDropzone.addEventListener('drop', e => handleRSIFile(e.dataTransfer.files[0]));
+      rsiDropzone.addEventListener('click', () => rsiFileInput?.click());
+    }
 
-  // Le bouton “+ Ajouter une année” reste inchangé : on ajoute une ligne vierge
-  if (addRowBtn) addRowBtn.addEventListener('click', () => addCareerRow());
-</script>
+    // Ajout manuel
+    addRowBtn?.addEventListener('click', () => addCareerRow());
 
-    // ---------- Collecte / Setup ----------
-    function collectCareerFromTable() {
-      pastCareerData = { rows: [], totalTrimesters: 0, lastYear: 0 };
+    // Navigation Step1 -> Step2 (on garde l’ID/bouton comme avant)
+    proceedToStep2Btn?.addEventListener('click', () => {
+      // Reconstituer pastCareerData minimal pour Step2
       const rows = careerTableBody.querySelectorAll('tr');
+      pastCareerData = { rows: [], totalTrimesters: 0, lastYear: 0 };
       rows.forEach(row => {
-        const year = parseInt(row.querySelector('.year')?.value ?? '');
-        const income = parseFloat(row.querySelector('.income')?.value ?? '');
-        const quarters = parseInt(row.querySelector('.quarters')?.value ?? '');
-        const activityType = row.querySelector('.activity-type')?.value ?? 'private';
-        const observation = row.querySelector('.observation')?.value ?? 'normal';
-        if (!isNaN(year) && !isNaN(income) && !isNaN(quarters)) {
-          pastCareerData.totalTrimesters += quarters;
+        const year = Number(row.querySelector('.year').value);
+        const income = Number(row.querySelector('.income').value) || 0;
+        const quarters = Number(row.querySelector('.quarters').value) || 0;
+        const activityType = row.querySelector('.activity-type').value;
+        const observation = row.querySelector('.observation').value;
+        if (year) {
           pastCareerData.rows.push({ year, income, quarters, activityType, observation });
+          pastCareerData.totalTrimesters += quarters;
           if (year > pastCareerData.lastYear) pastCareerData.lastYear = year;
         }
       });
-    }
+      birthYear = Number(document.getElementById('initialBirthYear').value) || 1980;
 
-    function setupSimulationStep() {
-      const currentYear = new Date().getFullYear();
-      const minYear = Math.max(currentYear, pastCareerData.lastYear + 1);
-      const maxYear = (parseInt(document.getElementById('initialBirthYear')?.value || '1980')) + 70;
+      // afficher Step2
+      step1.classList.remove('active');
+      step2.classList.add('active');
+      // (Tu conserves ton propre calcul/graphes ailleurs si besoin)
+    });
 
-      retirementYearSlider.min = minYear;
-      retirementYearSlider.max = maxYear;
-      retirementYearSlider.value = minYear;
+    // Retour Step2 -> Step1
+    backToStep1Btn?.addEventListener('click', () => {
+      step2.classList.remove('active');
+      step1.classList.add('active');
+    });
 
-      document.getElementById('sliderMinLabel').textContent = minYear;
-      document.getElementById('sliderMaxLabel').textContent = maxYear;
-      updateSliderLabels();
-    }
-
-    function updateSliderLabels() {
-      const year = parseInt(retirementYearSlider.value);
-      const minYear = parseInt(retirementYearSlider.min);
-      const maxYear = parseInt(retirementYearSlider.max);
-      const birth = parseInt(document.getElementById('initialBirthYear')?.value || '1980');
-
-      document.getElementById('sliderValueLabel').textContent = year;
-      document.getElementById('retirementAgeLabel').textContent = `${year - birth} ans`;
-
-      const highlight = document.querySelector('.slider-highlight');
-      const percentage = (maxYear - minYear) > 0 ? (year - minYear) / (maxYear - minYear) * 100 : 0;
-      highlight.style.width = `${percentage}%`;
-
-      // Montrer la zone d’hypothèses si départ différé
-      if (year > minYear) {
-        futureAssumptionsContainer.classList.remove('hidden');
-      } else {
-        futureAssumptionsContainer.classList.add('hidden');
-      }
-    }
-
-    // ---------- Simulation (privé + complémentaire) ----------
-    function getRequiredTrimesters(birthYear) {
-      if (birthYear <= 1957) return 166;
-      if (birthYear >= 1958 && birthYear <= 1960) return 167;
-      if (birthYear === 1961) return 168;
-      if (birthYear === 1962) return 169;
-      if (birthYear === 1963) return 170;
-      if (birthYear === 1964) return 171;
-      return 172;
-    }
-
-    function calculateProjectedPension(retirementYear) {
-      // Clone
-      const finalCareerRows = JSON.parse(JSON.stringify(pastCareerData.rows));
-      let finalTotalTrimesters = pastCareerData.totalTrimesters;
-
-      // Simple projection future si l’utilisateur décale l’année et a renseigné un revenu
-      const numberOfFutureYears = retirementYear - 1 - pastCareerData.lastYear;
-      const futureIncome = parseFloat(futureIncomeEl.value || '0');
-      const futureActivity = futureActivityEl.value || 'private';
-      if (numberOfFutureYears > 0 && !isNaN(futureIncome) && futureIncome > 0) {
-        for (let i = 0; i < numberOfFutureYears; i++) {
-          const year = pastCareerData.lastYear + 1 + i;
-          finalTotalTrimesters += 4;
-          finalCareerRows.push({ year, income: futureIncome, quarters: 4, activityType: futureActivity, observation: 'normal' });
-        }
-      }
-
-      const requiredTrimesters = getRequiredTrimesters(birthYear);
-      const retirementAge = retirementYear - birthYear;
-      const missingTrimesters = (retirementAge < 67) ? Math.max(0, requiredTrimesters - finalTotalTrimesters) : 0;
-      const decoteTrimesters = Math.min(missingTrimesters, 20);
-
-      let pensions = {};
-
-      // Base CNAV (simplifiée) + complémentaire
-      const privateCareer = finalCareerRows.filter(r => r.activityType === 'private' && r.observation === 'normal');
-      if (privateCareer.length > 0) {
-        const privateSalaries = privateCareer.map(d => ({...d, revalued: d.income * (revalorisationCoefficients[d.year] || 1)}));
-        privateSalaries.sort((a,b)=>b.revalued - a.revalued);
-        const best25 = privateSalaries.slice(0,25);
-        const SAM = best25.reduce((s,x)=>s+x.revalued,0) / Math.max(1,best25.length);
-        const rate = Math.max(0, 50 - (decoteTrimesters * 0.625)); // décote 0,625%/trimestre manquant
-        let basePension = SAM * (rate/100) * (finalTotalTrimesters / requiredTrimesters);
-
-        // Complémentaire : si parseRSI a trouvé des points, on les utilise
-        const totalPoints = parsedRights.agircArrco?.totalPoints ?? privateCareer.reduce((acc, d) => {
-          const T1 = Math.min(d.income, PSS);
-          const T2 = Math.max(0, d.income - PSS);
-          return acc + (((T1 * 0.062) + (T2 * 0.17)) / 18.7669);
-        }, 0);
-        const pointValue = parsedRights.agircArrco?.pointValue ?? AGIRC_ARRCO_POINT_VALUE;
-        let compPension = totalPoints * pointValue;
-
-        // Majoration enfants (simplifiée) : 10% si >= 3 enfants
-        if (childrenCount >= 3) {
-          basePension *= 1.10;
-          compPension *= 1.10;
-        }
-
-        pensions.private = {
-          base: Math.max(0, basePension),
-          comp: Math.max(0, compPension),
-          details: { finalSAM: SAM, rate, totalAgircArrcoPoints: totalPoints, pointValue }
-        };
-      }
-
-      return { pensions, retirementYear, finalCareer: finalCareerRows, finalTotalTrimesters };
-    }
-
-    function displayResults({ pensions, retirementYear }) {
-      resultsContainer.innerHTML = '';
-      chartContainer.innerHTML = '';
-      let total = 0;
-      const parts = [];
-
-      if (pensions.private) {
-        const { base, comp, details } = pensions.private;
-        resultsContainer.innerHTML += `
-          <div class="mb-6">
-            <h3 class="text-lg font-semibold text-blue-800 border-b pb-2 mb-3">Régime Salarié Privé</h3>
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div><span class="font-medium text-gray-600">SAM projeté :</span> <span class="block font-bold">${details.finalSAM.toFixed(0)} €</span></div>
-              <div><span class="font-medium text-gray-600">Taux :</span> <span class="block font-bold">${details.rate.toFixed(2)}%</span></div>
-            </div>
-            <p class="text-right text-xl font-semibold mt-2">Base : <span class="text-blue-600">${base.toFixed(2)} €</span></p>
-            <hr class="my-2">
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div><span class="font-medium text-gray-600">Points Agirc‑Arrco :</span> <span class="block font-bold">${details.totalAgircArrcoPoints.toFixed(0)}</span></div>
-              <div><span class="font-medium text-gray-600">Valeur du point :</span> <span class="block font-bold">${details.pointValue.toFixed(4)} €</span></div>
-            </div>
-            <p class="text-right text-xl font-semibold mt-2">Complémentaire : <span class="text-blue-600">${comp.toFixed(2)} €</span></p>
-          </div>
-        `;
-        total += base + comp;
-        parts.push({label:'Base Privé', value:base, color:'rgb(59,130,246)'});
-        parts.push({label:'Compl. Privé', value:comp, color:'rgb(14,165,233)'});
-      }
-
-      // Barres horizontales
-      if (parts.length) {
-        chartWrapper.classList.remove('hidden');
-        parts.forEach(p => {
-          const pct = total>0 ? (p.value/total)*100 : 0;
-          chartContainer.innerHTML += `
-            <div class="flex items-center">
-              <div class="w-28">${p.label}</div>
-              <div class="flex-1 bg-gray-200 rounded-full h-4">
-                <div class="h-4 rounded-full text-white text-center text-xs leading-4" style="width:${pct}%; background:${p.color}">${pct.toFixed(1)}%</div>
-              </div>
-            </div>
-          `;
-        });
-      } else {
-        chartWrapper.classList.add('hidden');
-      }
-
-      // Totaux
-      totalWrapper.classList.remove('hidden');
-      document.getElementById('pensionTotalAnnuel').textContent = `${total.toFixed(2)} € / an`;
-      document.getElementById('pensionTotalMensuel').textContent = `(soit ${(total/12).toFixed(2)} € / mois brut)`;
-      resultsCard.classList.add('show');
-    }
-
-    function analyzeCareer(finalCareer) {
-      const box = document.getElementById('analysis-container');
-      box.innerHTML = '';
-      const anomalies = [];
-      let firstYear = Infinity;
-
-      finalCareer.forEach(r=>{
-        if (r.year < firstYear && r.quarters > 0) firstYear = r.year;
-        if (r.income > 0 && r.quarters === 0) anomalies.push(`⚠️ ${r.year} : revenu sans trimestre validé.`);
-        if (r.income === 0 && r.quarters > 0 && r.observation === 'normal') anomalies.push(`⚠️ ${r.year} : trimestres sans revenu (période spéciale ?).`);
-      });
-
-      if (anomalies.length) box.innerHTML += `<ul>${anomalies.map(a=>`<li>${a}</li>`).join('')}</ul>`;
-      const birth = birthYear;
-      const ageAtFirstQuarter = isFinite(firstYear) ? firstYear - birth : null;
-      if (ageAtFirstQuarter !== null && ageAtFirstQuarter <= 20) {
-        box.innerHTML += `<p class="mt-2">💡 Début d'activité très tôt (≤20 ans) : vérifier l'éligibilité <strong>Carrière Longue</strong>.</p>`;
-      }
-      if (!anomalies.length && ageAtFirstQuarter === null) {
-        box.innerHTML = `<p class="text-green-600">✅ Aucune anomalie évidente détectée.</p>`;
-      }
-    }
-
-    // ---------- Listeners ----------
+    // Quelques lignes exemples au chargement (modifiable)
     document.addEventListener('DOMContentLoaded', () => {
-      // Démo de départ
       addCareerRow(2023, 46000, 4);
       addCareerRow(2022, 44000, 4);
       addCareerRow(2021, 42000, 4);
-      toggleProceedAvailability();
-
-      // Ajout manuel
-      addRowBtn.addEventListener('click', () => addCareerRow());
-
-      // Import fichier
-      rsiFileInput.addEventListener('change', e => handleRSIFile(e.target.files[0]));
-      // Dropzone
-      ['dragenter','dragover'].forEach(ev => rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.add('bg-gray-50'); }));
-      ['dragleave','drop'].forEach(ev => rsiDropzone.addEventListener(ev, e => { e.preventDefault(); rsiDropzone.classList.remove('bg-gray-50'); }));
-      rsiDropzone.addEventListener('click', ()=> rsiFileInput.click());
-      rsiDropzone.addEventListener('drop', e => handleRSIFile(e.dataTransfer.files[0]));
-
-      // Slider & inputs futurs
-      retirementYearSlider.addEventListener('input', ()=>{ updateSliderLabels(); runSimulation(); });
-      futureIncomeEl.addEventListener('input', runSimulation);
-      futureActivityEl.addEventListener('change', runSimulation);
-
-      // Étape 1 → Étape 2
-      proceedToStep2Btn.addEventListener('click', () => {
-        collectCareerFromTable();
-
-        if (!pastCareerData.rows.length) {
-          alert('Ajoute au moins une année (ou importe ton PDF) avant de continuer.');
-          return;
-        }
-        birthYear = parseInt(document.getElementById('initialBirthYear')?.value || '1980');
-        childrenCount = parseInt(document.getElementById('initialChildrenCount')?.value || '0');
-
-        step1.classList.remove('active');
-        step2.classList.add('active');
-
-        setupSimulationStep();
-
-        // baseline
-        baselinePensions = calculateProjectedPension(parseInt(retirementYearSlider.min)).pensions;
-        baselineRetirementYear = parseInt(retirementYearSlider.min);
-
-        runSimulation();
-      });
     });
-
-    function runSimulation() {
-      const retirementYear = parseInt(retirementYearSlider.value);
-      const data = calculateProjectedPension(retirementYear);
-      displayResults(data);
-      analyzeCareer(data.finalCareer);
-    }
   </script>
 </body>
 </html>
