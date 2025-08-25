@@ -1,433 +1,219 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Relevé de carrière — Étape 1</title>
-  <!-- Tailwind (CDN ok pour Pages) -->
+  <title>Relevé de carrière — Import & édition</title>
+
+  <!-- UI libs -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Chart.js n'est pas utilisé sur cette page, on reste léger -->
-  <!-- pdf.js (chargé en différé) -->
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.js"></script>
-  <script>
-    // Quand pdf.js est chargé, on règle le worker pour GitHub Pages
-    window.addEventListener('load', () => {
-      if (window.pdfjsLib) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.js";
-      }
-    });
-  </script>
   <style>
-    :root { --card: #0b1220; }
-    body{ font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    /* Style “tableau de prod” */
-    .data-cell input, .data-cell select {
-      background: transparent;
-      width: 100%;
-      padding: .35rem .5rem;
-      border-radius: .375rem;
-      border: 1px solid rgb(229,231,235);
-    }
-    .data-cell input::-webkit-outer-spin-button,
-    .data-cell input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    .data-cell input[type=number] { -moz-appearance: textfield; }
-    .scroll-shadow:before, .scroll-shadow:after{
-      content:""; position:absolute; left:0; right:0; height:16px; pointer-events:none;
-    }
-    .scroll-shadow:before{ top:0; background:linear-gradient(#fff, rgba(255,255,255,0)); }
-    .scroll-shadow:after{ bottom:0; background:linear-gradient(rgba(255,255,255,0), #fff); }
-    .btn {
-      display:inline-flex; align-items:center; gap:.5rem;
-      background:#16a34a; color:white; font-weight:600;
-      padding:.6rem .9rem; border-radius:.6rem;
-    }
-    .btn svg{ width:18px; height:18px; }
-    .btn-secondary { background:#eef2ff; color:#3730a3; }
-    .btn-ghost { background:#f8fafc; color:#0f172a; }
-    .chip{ display:inline-flex; align-items:center; gap:.4rem;
-      padding:.25rem .5rem; border-radius:999px; font-size:.75rem; font-weight:600;
-      background:#f1f5f9; color:#0f172a }
-    .totals-box h4{ font-weight:700; letter-spacing:.02em }
-    .row-add:hover{ background:#f8fafc; }
-    .soft-card{ background:white; border-radius:1rem; box-shadow: 0 10px 30px rgba(2,6,23,.06); }
-    .toolbar{ border-bottom:1px solid #eef2f7 }
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .drop-ok { border-color:#4f46e5 !important; background:#eef2ff !important; }
+    input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none;margin:0 }
+    input[type=number]{ -moz-appearance:textfield }
   </style>
+
+  <!-- PDF.js (différé) -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.min.js"
+    defer
+    onload="window.pdfjsLib && (window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.js')">
+  </script>
+
+  <!-- Modules maison -->
+  <script type="module" src="./parser.js"></script>
+  <script type="module" src="./mapping.js"></script>
 </head>
-<body class="bg-[#f6f8fb] min-h-screen">
-  <main class="max-w-[1200px] mx-auto px-4 md:px-6 py-8">
+<body class="bg-gray-100 min-h-screen">
+
+  <main class="max-w-7xl mx-auto py-8 px-4">
     <header class="mb-6">
-      <h1 class="text-[36px] md:text-[40px] font-extrabold text-slate-900 leading-tight">
-        Étape 1 : Votre Carrière Passée
-      </h1>
-      <p class="text-slate-600 mt-1">
-        Importez votre Relevé de Situation Individuelle (RSI/RIS) ou saisissez manuellement les années.  
-        Les données importées remplissent directement le tableau ci‑dessous (modifiable à la main).
-      </p>
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-900">Étape 1 : Votre carrière passée</h1>
+      <p class="text-gray-600 mt-1">Importez votre Relevé de carrière (PDF) <em>ou</em> saisissez manuellement. Le tableau ci‑dessous sera pré‑rempli et reste entièrement modifiable.</p>
     </header>
 
-    <!-- Bandeau d'actions comme dans la vidéo -->
-    <section class="soft-card mb-6">
-      <div class="toolbar p-4 flex flex-wrap items-center gap-3">
-        <div class="flex items-center gap-2">
-          <button id="btnImportRIS" class="btn">
-            <!-- icon -->
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3"/>
-            </svg>
-            Import du RIS
-          </button>
-          <input id="fileRIS" type="file" accept="application/pdf" class="hidden">
-          <span class="text-slate-400">ou</span>
-          <button id="btnSaisieExpress" class="btn btn-secondary">Saisie Express</button>
-        </div>
-
-        <div class="ml-auto flex flex-wrap items-center gap-2">
-          <div class="chip" title="Étape 2 facultative (imports complémentaires)">Étape 2 (facultatif)</div>
-          <button id="btnCarsat" class="btn btn-ghost">Import CARSAT</button>
-          <button id="btnAgircArrco" class="btn btn-ghost">Import Agirc‑Arrco</button>
-          <div class="chip">Étape optionnelle</div>
-          <button id="btnCheckPoints" class="btn btn-ghost">Contrôler les points</button>
-          <button id="btnClear" class="btn btn-ghost">Tout effacer</button>
-          <button id="btnExport" class="btn btn-ghost">Exporter</button>
-        </div>
+    <!-- Ligne paramètres courts -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+      <label class="block">
+        <span class="text-sm text-gray-600">Année de naissance</span>
+        <input id="birthYear" type="number" value="1980" class="mt-1 w-full rounded-md border-gray-300 shadow-sm"/>
+      </label>
+      <label class="block">
+        <span class="text-sm text-gray-600">Nombre d'enfants</span>
+        <input id="childrenCount" type="number" value="2" class="mt-1 w-full rounded-md border-gray-300 shadow-sm"/>
+      </label>
+      <div class="md:col-span-2 flex items-end gap-3">
+        <input id="rsiFileInput" type="file" accept="application/pdf" class="hidden"/>
+        <button id="importPdfBtn" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0l-3 3m3-3l3 3"/>
+          </svg>
+          Importer mon relevé (PDF)
+        </button>
       </div>
+    </div>
 
-      <!-- Dropzone (clic + glisser-déposer) -->
-      <div id="dropZone"
-           class="p-4 border-2 border-dashed rounded-xl text-center text-slate-500 cursor-pointer mx-4 my-4">
-        Glissez‑déposez votre PDF ici (ou cliquez)
-      </div>
-    </section>
+    <!-- Dropzone -->
+    <div id="dropzone" class="mb-5 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-500 cursor-pointer">
+      Glissez‑déposez votre PDF ici (ou cliquez)
+    </div>
 
-    <!-- Tableau principal -->
-    <section class="soft-card">
-      <div class="px-4 pt-4">
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50 text-slate-600">
-              <tr>
-                <th class="text-left px-3 py-2 font-semibold">Année</th>
-                <th class="text-left px-3 py-2 font-semibold">Régime</th>
-                <th class="text-left px-3 py-2 font-semibold">Revenu annuel</th>
-                <th class="text-left px-3 py-2 font-semibold">Trimestres</th>
-                <th class="text-left px-3 py-2 font-semibold">Points RCI</th>
-                <th class="text-left px-3 py-2 font-semibold">Points Arrco</th>
-                <th class="text-left px-3 py-2 font-semibold">Points Agirc TB</th>
-                <th class="text-left px-3 py-2 font-semibold">Points Agirc TC</th>
-                <th class="text-left px-3 py-2 font-semibold">Points AgircArrco</th>
-                <th class="text-left px-3 py-2 font-semibold">Points Ircantec</th>
-                <th class="w-10"></th>
-              </tr>
-            </thead>
-            <tbody id="careerBody" class="align-top">
-              <!-- Lignes dynamiques -->
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="11" class="px-3 py-3">
-                  <button id="rowAddButton" class="w-full row-add text-slate-700 border border-slate-200 rounded-lg py-2">
-                    <span class="inline-block mr-1 align-middle">➕</span>
-                    Cliquez ici pour ajouter une année de carrière
-                  </button>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+    <!-- Tableau carrière (copie conforme logique + colonnes vidéo) -->
+    <div class="overflow-x-auto bg-white rounded-xl shadow">
+      <table id="careerTable" class="min-w-[1100px] w-full">
+        <thead class="bg-gray-50 text-xs font-semibold text-gray-600">
+          <tr>
+            <th class="px-3 py-2 text-left">Année</th>
+            <th class="px-3 py-2 text-left">Régime</th>
+            <th class="px-3 py-2 text-left">Revenu annuel (€)</th>
+            <th class="px-3 py-2 text-left">Trimestres</th>
+            <th class="px-3 py-2 text-left">Points RCI</th>
+            <th class="px-3 py-2 text-left">Points Arrco</th>
+            <th class="px-3 py-2 text-left">Points Agirc TB</th>
+            <th class="px-3 py-2 text-left">Points Agirc TC</th>
+            <th class="px-3 py-2 text-left">Points Agirc‑Arrco</th>
+            <th class="px-3 py-2 text-left">Points Ircantec</th>
+            <th class="px-2 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="text-sm" id="tbody"></tbody>
+      </table>
+    </div>
 
-        <!-- Totaux -->
-        <div class="grid sm:grid-cols-2 lg:grid-cols-6 gap-4 p-4 totals-box">
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">Nombre total de trimestres</h4>
-            <div class="text-3xl font-extrabold text-indigo-700 mt-1"><span id="totTri">0</span></div>
-            <div class="text-slate-500 text-sm">dont assimilés : <span id="totTriAssim">0</span></div>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">RCI</h4>
-            <div class="text-2xl font-bold text-slate-900 mt-1" id="totRCI">0</div>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">Arrco</h4>
-            <div class="text-2xl font-bold text-slate-900 mt-1" id="totArrco">0</div>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">Agirc TB</h4>
-            <div class="text-2xl font-bold text-slate-900 mt-1" id="totTB">0</div>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">Agirc TC</h4>
-            <div class="text-2xl font-bold text-slate-900 mt-1" id="totTC">0</div>
-          </div>
-          <div class="bg-slate-50 rounded-xl p-4">
-            <h4 class="text-slate-800">AgircArrco / Ircantec</h4>
-            <div class="text-sm text-slate-600">Agirc‑Arrco : <span id="totAA">0</span></div>
-            <div class="text-sm text-slate-600">Ircantec : <span id="totIrcantec">0</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="mt-8 flex justify-end">
-      <button class="btn bg-indigo-600 hover:bg-indigo-700">
-        Suivant →
+    <div class="mt-4 flex items-center justify-between">
+      <button id="addRowBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md">
+        + Ajouter une année
+      </button>
+      <button id="analyzeBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-2 rounded-md">
+        Analyser la carrière et simuler →
       </button>
     </div>
   </main>
 
-  <!-- Modules “maison” -->
   <script type="module">
     import { parseRSI } from './parser.js';
-    import { employmentsToYearMap, parseAmount, regimeToActivityType } from './mapping.js';
+    import { employmentsToYearMap } from './mapping.js';
 
-    // ====== Modèle & helpers ===================================================
-    const body = document.getElementById('careerBody');
+    // Elements
+    const tbody = document.getElementById('tbody');
+    const importBtn = document.getElementById('importPdfBtn');
+    const fileInput = document.getElementById('rsiFileInput');
+    const dropzone  = document.getElementById('dropzone');
+    const addRowBtn = document.getElementById('addRowBtn');
 
-    function n(v){ const x = Number(v); return isFinite(x) ? x : 0; }
-    function fmtMoney(v){
-      if (v === '' || v === null || typeof v === 'undefined') return '';
-      const num = Number(v);
-      return isFinite(num) ? num.toLocaleString('fr-FR') : v;
-    }
-    function unfmtMoney(txt){
-      if (txt === '' || txt === null || typeof txt === 'undefined') return '';
-      return Number(String(txt).replace(/[ € ]/g,'').replace(/\./g,'').replace(',','.')) || 0;
-    }
+    // Helpers UI
+    function money(v){ return (v ?? '') === '' ? '' : String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+    function demoney(s){ if(s==null||s==='') return ''; return Number(String(s).replace(/[^\d.-]/g,'')); }
 
-    // options “régime” (libres à éditer)
-    const regimeOptions = [
-      "Régime général",
-      "Assimilé (maladie/maternité/AT/Chômage…)",
-      "Indépendant (RCI)",
-      "MSA (agri)",
-      "Fonction publique",
-      "Ircantec",
-      "Agirc‑Arrco"
-    ];
-
-    function makeSelect(options, value){
-      const sel = document.createElement('select');
-      sel.className = 'data-cell';
-      options.forEach(o=>{
-        const op = document.createElement('option');
-        op.value = o; op.textContent = o;
-        if (o === value) op.selected = true;
-        sel.appendChild(op);
-      });
-      return sel;
-    }
-    function makeInputNumber(value='', step='1'){
-      const el = document.createElement('input');
-      el.type = 'number';
-      el.step = step;
-      el.value = value;
-      return el;
-    }
-    function makeInputMoney(value=''){
-      const el = document.createElement('input');
-      el.type = 'text';
-      el.inputMode = 'decimal';
-      el.value = value ? fmtMoney(value) : '';
-      el.addEventListener('blur', ()=> el.value = el.value ? fmtMoney(unfmtMoney(el.value)) : '');
-      el.addEventListener('focus', ()=> el.select());
-      return el;
-    }
-
-    function rowToData(tr){
-      const cells = tr.querySelectorAll('.data-cell');
-      return {
-        year: n(cells[0].value),
-        regime: cells[1].value,
-        income: unfmtMoney(cells[2].value),
-        quarters: n(cells[3].value),
-        rci: n(cells[4].value),
-        arrco: n(cells[5].value),
-        agircTB: n(cells[6].value),
-        agircTC: n(cells[7].value),
-        agircArrco: n(cells[8].value),
-        ircantec: n(cells[9].value)
-      };
-    }
-
-    function recalcTotals(){
-      const rows = body.querySelectorAll('tr');
-      let tTri=0, tAssim=0, tRCI=0, tArrco=0, tTB=0, tTC=0, tAA=0, tIrc=0;
-      rows.forEach(tr=>{
-        const d = rowToData(tr);
-        tTri += d.quarters;
-        // Heuristique “assimilé” : régime marqué comme assimilé OU revenu 0 avec trimestres > 0
-        const assimilated = /assimil/i.test(d.regime) || (d.income===0 && d.quarters>0);
-        if (assimilated) tAssim += d.quarters;
-        tRCI += d.rci;
-        tArrco += d.arrco;
-        tTB += d.agircTB;
-        tTC += d.agircTC;
-        tAA += d.agircArrco;
-        tIrc += d.ircantec;
-      });
-      // Affichage
-      document.getElementById('totTri').textContent = tTri;
-      document.getElementById('totTriAssim').textContent = tAssim;
-      document.getElementById('totRCI').textContent = tRCI.toLocaleString('fr-FR', {maximumFractionDigits:2});
-      document.getElementById('totArrco').textContent = tArrco.toLocaleString('fr-FR', {maximumFractionDigits:2});
-      document.getElementById('totTB').textContent = tTB.toLocaleString('fr-FR', {maximumFractionDigits:2});
-      document.getElementById('totTC').textContent = tTC.toLocaleString('fr-FR', {maximumFractionDigits:2});
-      document.getElementById('totAA').textContent = tAA.toLocaleString('fr-FR', {maximumFractionDigits:2});
-      document.getElementById('totIrcantec').textContent = tIrc.toLocaleString('fr-FR', {maximumFractionDigits:2});
-    }
-
-    function addRow(prefill={}){
-      const {
-        year='', regime='Régime général', income='', quarters='',
-        rci=0, arrco=0, agircTB=0, agircTC=0, agircArrco=0, ircantec=0
-      } = prefill;
-
+    function addRow(data={}){
       const tr = document.createElement('tr');
+      tr.className = "border-b last:border-b-0";
+
       tr.innerHTML = `
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2"></td>
-        <td class="px-3 py-2 text-right">
-          <button class="text-red-500 hover:text-red-700" title="Supprimer">✕</button>
+        <td class="px-3 py-2"><input type="number" class="w-24 year border rounded px-2 py-1" value="${data.year ?? ''}"></td>
+        <td class="px-3 py-2"><input type="text"   class="w-44 regime border rounded px-2 py-1" value="${data.regime ?? 'Régime général'}"></td>
+        <td class="px-3 py-2"><input type="text"   class="w-36 income border rounded px-2 py-1" value="${data.income!=null?money(data.income):''}" inputmode="numeric"></td>
+        <td class="px-3 py-2"><input type="number" class="w-20 quarters border rounded px-2 py-1" value="${data.quarters ?? ''}" min="0" max="4"></td>
+        <td class="px-3 py-2"><input type="number" class="w-24 rci border rounded px-2 py-1" step="0.01" value="${data.points?.RCI ?? ''}"></td>
+        <td class="px-3 py-2"><input type="number" class="w-24 arrco border rounded px-2 py-1" step="0.01" value="${data.points?.ARRCO ?? ''}"></td>
+        <td class="px-3 py-2"><input type="number" class="w-24 agtb border rounded px-2 py-1" step="0.01" value="${data.points?.AGIRC_TB ?? ''}"></td>
+        <td class="px-3 py-2"><input type="number" class="w-24 agtc border rounded px-2 py-1" step="0.01" value="${data.points?.AGIRC_TC ?? ''}"></td>
+        <td class="px-3 py-2"><input type="number" class="w-28 agircArrco border rounded px-2 py-1" step="0.01" value="${data.points?.AGIRC_ARRCO ?? ''}"></td>
+        <td class="px-3 py-2"><input type="number" class="w-24 ircantec border rounded px-2 py-1" step="0.01" value="${data.points?.IRCANTEC ?? ''}"></td>
+        <td class="px-2 py-2 text-right">
+          <button class="remove text-red-600 hover:text-red-700 px-2">✕</button>
         </td>
       `;
-      const tds = tr.querySelectorAll('td');
-
-      // Année
-      const y = makeInputNumber(year, '1'); y.classList.add('data-cell');
-      tds[0].appendChild(y);
-
-      // Régime
-      const reg = makeSelect(regimeOptions, regime); reg.classList.add('data-cell');
-      tds[1].appendChild(reg);
-
-      // Revenu
-      const inc = makeInputMoney(income); inc.classList.add('data-cell');
-      tds[2].appendChild(inc);
-
-      // Trimestres
-      const tri = makeInputNumber(quarters, '1'); tri.classList.add('data-cell');
-      tri.min = '0'; tri.max = '4';
-      tds[3].appendChild(tri);
-
-      // Points
-      const inRCI = makeInputNumber(rci, '0.01'); inRCI.classList.add('data-cell'); tds[4].appendChild(inRCI);
-      const inArr = makeInputNumber(arrco, '0.01'); inArr.classList.add('data-cell'); tds[5].appendChild(inArr);
-      const inTB  = makeInputNumber(agircTB, '0.01'); inTB.classList.add('data-cell');  tds[6].appendChild(inTB);
-      const inTC  = makeInputNumber(agircTC, '0.01'); inTC.classList.add('data-cell');  tds[7].appendChild(inTC);
-      const inAA  = makeInputNumber(agircArrco, '0.01'); inAA.classList.add('data-cell'); tds[8].appendChild(inAA);
-      const inIrc = makeInputNumber(ircantec, '0.01'); inIrc.classList.add('data-cell'); tds[9].appendChild(inIrc);
-
-      // Suppression
-      tds[10].querySelector('button').addEventListener('click', ()=>{
-        tr.remove(); recalcTotals();
-      });
-
-      // Recalculs à chaque édition
-      tr.querySelectorAll('input, select').forEach(el => el.addEventListener('input', recalcTotals));
-
-      body.appendChild(tr);
-      recalcTotals();
+      tr.querySelector('.remove').addEventListener('click',()=>tr.remove());
+      // format income on blur
+      tr.querySelector('.income').addEventListener('blur', e => e.target.value = e.target.value ? money(demoney(e.target.value)) : '');
+      tbody.appendChild(tr);
     }
 
-    // ====== Import RIS (PDF) ===================================================
-    async function handleRISFile(file){
-      if (!file) return;
-      let rights;
+    // Import actions
+    importBtn.addEventListener('click', ()=> fileInput.click());
+    fileInput.addEventListener('change', e => handleFile(e.target.files?.[0]));
+    dropzone.addEventListener('click', ()=> fileInput.click());
+    ;['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('drop-ok'); }));
+    ;['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('drop-ok'); }));
+    dropzone.addEventListener('drop', e => handleFile(e.dataTransfer.files?.[0]));
+
+    async function handleFile(file){
+      if(!file) return;
       try{
-        rights = await parseRSI(file);
-      } catch(e){
-        console.error('[RSI] Erreur parseRSI:', e);
+        const rights = await parseRSI(file);              // ← parser étendu
+        // Agrégation revenus par année depuis employments
+        const byYearIncome = employmentsToYearMap(rights.employments || {});
+        // On clear et on remplit TOUT dans ce tableau
+        tbody.innerHTML = '';
+
+        // Construire l'ensemble des années vues (trimestres/points/emplois)
+        const yearsSet = new Set();
+        (rights.years || []).forEach(y => yearsSet.add(y.year));
+        Object.keys(byYearIncome).forEach(y => yearsSet.add(+y));
+
+        // Pour chaque année, fabriquer l’objet de ligne
+        const allYears = Array.from(yearsSet).sort((a,b)=>a-b);
+        for(const year of allYears){
+          const yMeta   = (rights.years || []).find(r => r.year===year) || {};
+          const income  = byYearIncome[year]?.income || '';
+          const regime  = byYearIncome[year]?.regime || 'Régime général';
+
+          // Points par régime (normalisés → colonnes)
+          const points = mapYearPoints(rights.pointsByYear?.[year] || []);
+          addRow({
+            year,
+            regime,
+            income,
+            quarters: yMeta.quarters ?? '',
+            points
+          });
+        }
+        if(allYears.length===0){
+          // rien détecté ? On garde au moins 3 lignes vides
+          addRow({year:new Date().getFullYear()-2});
+          addRow({year:new Date().getFullYear()-1});
+          addRow({year:new Date().getFullYear()});
+        }
+      }catch(err){
+        console.error(err);
         alert("Échec de lecture du PDF.");
-        return;
       }
-
-      // Map employeurs -> revenu annuel par année
-      const yearMap = employmentsToYearMap(rights.employments || []);
-      // Nettoyage tableau
-      body.innerHTML = '';
-
-      // Années + trimestres (parser.js remplit rights.years)
-      const years = (rights.years || []).slice().sort((a,b)=>a.year-b.year);
-      years.forEach(({year, quarters, agircArrcoPoints})=>{
-        const ymeta = yearMap[year] || {};
-        addRow({
-          year,
-          regime: ymeta.activityType ? ymeta.activityType : 'Régime général',
-          income: ymeta.income || '',
-          quarters: quarters || '',
-          // Points RCI/Arrco/Agirc : on pré-remplit ce qu’on sait, le reste reste éditable
-          rci: 0,
-          arrco: 0,                 // si tu as une ligne “ARRCO” distincte, mets-la ici
-          agircTB: 0,
-          agircTC: 0,
-          agircArrco: agircArrcoPoints || 0,
-          ircantec: 0
-        });
-      });
-
-      // Si le PDF ne contenait pas d’années, on ajoute une ligne vierge pour guider
-      if (years.length === 0){
-        addRow({year: new Date().getFullYear()});
-      }
-      recalcTotals();
     }
 
-    // ====== UI évènements ======================================================
-    const fileRIS = document.getElementById('fileRIS');
-    const btnImportRIS = document.getElementById('btnImportRIS');
-    const dz = document.getElementById('dropZone');
-
-    btnImportRIS.addEventListener('click', ()=> fileRIS.click());
-    fileRIS.addEventListener('change', e => handleRISFile(e.target.files[0]));
-
-    // Dropzone
-    ;['dragenter','dragover'].forEach(evt =>
-      dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.add('bg-slate-50'); })
-    );
-    ;['dragleave','drop'].forEach(evt =>
-      dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.remove('bg-slate-50'); })
-    );
-    dz.addEventListener('click', ()=> fileRIS.click());
-    dz.addEventListener('drop', e => handleRISFile(e.dataTransfer.files[0]));
-
-    // Ajouter une ligne
-    document.getElementById('rowAddButton').addEventListener('click', ()=> addRow({year: new Date().getFullYear()}));
-
-    // Tout effacer
-    document.getElementById('btnClear').addEventListener('click', ()=>{
-      if (!confirm('Vider toutes les lignes ?')) return;
-      body.innerHTML = ''; recalcTotals();
-    });
-
-    // Boutons “placeholder”
-    document.getElementById('btnSaisieExpress').addEventListener('click', ()=>{
-      if (body.children.length===0){
-        addRow({year: new Date().getFullYear()-3, regime:'Régime général', income:45000, quarters:4});
-        addRow({year: new Date().getFullYear()-2, regime:'Régime général', income:46000, quarters:4});
-        addRow({year: new Date().getFullYear()-1, regime:'Régime général', income:47000, quarters:4});
+    // Normalisation des noms de régimes de points → colonnes
+    function mapYearPoints(pairs){
+      // pairs = [{label:'Agirc-Arrco', points:15.98}, ...]
+      const out = { RCI:'', ARRCO:'', AGIRC_TB:'', AGIRC_TC:'', AGIRC_ARRCO:'', IRCANTEC:'' };
+      for(const p of pairs){
+        const L = (p.label||'').normalize('NFKC').toLowerCase();
+        if (/\brci\b/.test(L))            out.RCI = p.points;
+        else if (/ircantec/.test(L))      out.IRCANTEC = p.points;
+        else if (/agirc[- ]?arrco/.test(L)) out.AGIRC_ARRCO = p.points;
+        else if (/\barrco\b/.test(L))     out.ARRCO = p.points;
+        else if (/agirc\s*tb/.test(L))    out.AGIRC_TB = p.points;
+        else if (/agirc\s*tc/.test(L))    out.AGIRC_TC = p.points;
+        // Si un libellé inattendu apparaît, on peut l’ignorer ou logger
       }
-      alert("Exemple ajouté. Modifiez les cellules directement.");
-    });
-    document.getElementById('btnCarsat').addEventListener('click', ()=> alert("Import CARSAT (facultatif) – à brancher plus tard."));
-    document.getElementById('btnAgircArrco').addEventListener('click', ()=> alert("Import Agirc‑Arrco (facultatif) – à brancher plus tard."));
-    document.getElementById('btnCheckPoints').addEventListener('click', ()=> alert("Contrôle des points (optionnel) – à brancher plus tard."));
-    document.getElementById('btnExport').addEventListener('click', ()=> alert("Export (CSV/JSON) – à brancher selon besoin."));
+      return out;
+    }
 
-    // Démarrage : une ligne par défaut pour guider
-    addRow({ year:new Date().getFullYear()-3, regime:'Régime général', income: 45000, quarters: 4 });
-    addRow({ year:new Date().getFullYear()-2, regime:'Régime général', income: 46000, quarters: 4 });
-    addRow({ year:new Date().getFullYear()-1, regime:'Régime général', income: 47000, quarters: 4 });
+    // Ajouter une ligne manuelle
+    addRowBtn.addEventListener('click', ()=> addRow({}));
+
+    // Quelques lignes d’exemple au premier chargement (pour ne pas afficher vide)
+    document.addEventListener('DOMContentLoaded', ()=>{
+      addRow({year:2021, income:45000, quarters:3, points:{AGIRC_ARRCO:15.98}});
+      addRow({year:2022, income:45000, quarters:4, points:{AGIRC_ARRCO:43.97}});
+      addRow({year:2023, income:45000, quarters:4, points:{AGIRC_ARRCO:54.85}});
+    });
+
+    // Bouton « analyser » – (laisse ta logique existante s’intégrer plus tard)
+    document.getElementById('analyzeBtn').addEventListener('click', ()=>{
+      alert('OK pour la suite (simulation)…\nIci tu branches ta fonction de calcul existante.');
+    });
   </script>
 </body>
 </html>
